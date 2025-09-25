@@ -1,1 +1,0 @@
-# gestaointeli-jnr
