@@ -1,211 +1,305 @@
-class Caixa {
-    constructor() {
-        this.comandaId = null;
-        this.itens = [];
-        this.categoriaAtual = null;
-        this.init();
-    }
+// Debug inicial
+console.log('✅ caixa.js carregado com sucesso');
 
-    init() {
-        this.carregarComandaAberta();
-        this.configurarEventListeners();
-    }
+// Variáveis globais
+let comandaAtualId = null;
+let categoriaAtual = null;
+let itensComanda = [];
 
-    async carregarComandaAberta() {
-        try {
-            const response = await fetch('../../api/comanda_aberta.php');
-            const data = await response.json();
-            
-            if (data.comanda) {
-                this.comandaId = data.comanda.id;
-                this.atualizarInterfaceComanda();
-                this.carregarItensComanda();
-            }
-        } catch (error) {
-            console.error('Erro ao carregar comanda:', error);
-        }
-    }
+// URL base para APIs - CORRIGIDA
+const API_BASE = '../../api/'; // Caminho RELATIVO correto
 
-    async novaComanda() {
-        try {
-            const response = await fetch('../../api/nova_comanda.php', {
-                method: 'POST'
-            });
-            const data = await response.json();
-            
-            if (data.success) {
-                this.comandaId = data.comanda_id;
-                this.itens = [];
-                this.atualizarInterfaceComanda();
-                this.mostrarNotificacao('Nova comanda criada!', 'success');
-            }
-        } catch (error) {
-            console.error('Erro ao criar comanda:', error);
-        }
-    }
+console.log('🔄 URL Base da API:', API_BASE);
 
-    async carregarProdutos(categoriaId) {
-        this.categoriaAtual = categoriaId;
+// Função auxiliar para fazer requisições API
+async function apiCall(endpoint, options = {}) {
+    const url = API_BASE + endpoint;
+    console.log('📡 Chamando API:', url, options);
+    
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            },
+            ...options
+        });
         
-        try {
-            const response = await fetch(`../../api/produtos_categoria.php?categoria_id=${categoriaId}`);
-            const produtos = await response.json();
-            
-            this.exibirProdutos(produtos);
-            document.getElementById('categorias-grid').style.display = 'none';
-            document.getElementById('produtos-section').style.display = 'block';
-        } catch (error) {
-            console.error('Erro ao carregar produtos:', error);
+        console.log('📦 Resposta HTTP:', response.status, response.statusText);
+        
+        if (!response.ok) {
+            throw new Error(`Erro HTTP: ${response.status} - ${response.statusText}`);
         }
+        
+        const data = await response.json();
+        console.log('✅ Resposta API:', data);
+        return data;
+        
+    } catch (error) {
+        console.error('❌ Erro na API:', error);
+        mostrarNotificacao('Erro de conexão: ' + error.message, 'error');
+        throw error;
     }
+}
 
-    exibirProdutos(produtos) {
+// Funções principais
+async function novaComanda() {
+    console.log('🔄 Criando nova comanda...');
+    
+    try {
+        const result = await apiCall('nova_comanda.php', {
+            method: 'POST',
+            body: JSON.stringify({}) // Enviar objeto vazio
+        });
+        
+        if (result.success) {
+            comandaAtualId = result.comanda_id;
+            document.getElementById('numero-comanda').textContent = 'Comanda: #' + comandaAtualId;
+            document.getElementById('itens-comanda').innerHTML = '<p class="empty-message">Nenhum item adicionado</p>';
+            document.getElementById('subtotal').textContent = 'R$ 0,00';
+            document.getElementById('total').textContent = 'R$ 0,00';
+            document.getElementById('btn-finalizar').disabled = true;
+            
+            mostrarNotificacao('Nova comanda #' + comandaAtualId + ' criada!', 'success');
+            
+            // Verificar no banco
+            console.log('🔍 Verifique no banco: SELECT * FROM comandas ORDER BY id DESC LIMIT 1;');
+        } else {
+            mostrarNotificacao('Erro ao criar comanda: ' + result.message, 'error');
+        }
+    } catch (error) {
+        console.error('❌ Erro detalhado:', error);
+        mostrarNotificacao('Erro ao criar comanda. Verifique o console.', 'error');
+    }
+}
+
+async function carregarProdutos(categoriaId, categoriaNome) {
+    console.log('🔄 Carregando produtos da categoria:', categoriaId, categoriaNome);
+    categoriaAtual = categoriaId;
+    
+    try {
+        const produtos = await apiCall(`produtos_categoria.php?categoria_id=${categoriaId}`);
+        
+        // Mostrar seção de produtos
+        document.getElementById('categorias-section').style.display = 'none';
+        document.getElementById('produtos-section').style.display = 'block';
+        document.getElementById('titulo-produtos').textContent = 'Produtos: ' + categoriaNome;
+        
         const grid = document.getElementById('produtos-grid');
+        
+        if (!produtos || produtos.length === 0) {
+            grid.innerHTML = '<p>Nenhum produto encontrado nesta categoria</p>';
+            return;
+        }
+        
         grid.innerHTML = produtos.map(produto => `
-            <div class="produto-card" onclick="caixa.adicionarProduto(${produto.id})">
-                <h4>${produto.nome}</h4>
-                <div class="preco">${this.formatarMoeda(produto.preco)}</div>
+            <div class="produto-card" onclick="adicionarProduto(${produto.id}, '${escapeHtml(produto.nome)}', ${produto.preco})">
+                <h4>${escapeHtml(produto.nome)}</h4>
+                <div class="preco">R$ ${parseFloat(produto.preco).toFixed(2)}</div>
                 <small>Estoque: ${produto.estoque_atual}</small>
             </div>
         `).join('');
+        
+    } catch (error) {
+        console.error('❌ Erro ao carregar produtos:', error);
     }
-
-    voltarCategorias() {
-        document.getElementById('produtos-section').style.display = 'none';
-        document.getElementById('categorias-grid').style.display = 'grid';
-    }
-
-    async adicionarProduto(produtoId) {
-        if (!this.comandaId) {
-            this.mostrarNotificacao('Crie uma comanda primeiro!', 'warning');
-            return;
-        }
-
-        try {
-            const response = await fetch('../../api/adicionar_item.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    comanda_id: this.comandaId,
-                    produto_id: produtoId,
-                    quantidade: 1
-                })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                this.carregarItensComanda();
-                this.mostrarNotificacao('Produto adicionado!', 'success');
-            }
-        } catch (error) {
-            console.error('Erro ao adicionar produto:', error);
-        }
-    }
-
-    async carregarItensComanda() {
-        if (!this.comandaId) return;
-
-        try {
-            const response = await fetch(`../../api/itens_comanda.php?comanda_id=${this.comandaId}`);
-            const data = await response.json();
-            
-            this.itens = data.itens;
-            this.atualizarInterfaceComanda();
-        } catch (error) {
-            console.error('Erro ao carregar itens:', error);
-        }
-    }
-
-    atualizarInterfaceComanda() {
-        const comandaElement = document.getElementById('numero-comanda');
-        const itensElement = document.getElementById('itens-comanda');
-        const btnFinalizar = document.getElementById('btn-finalizar');
-
-        if (this.comandaId) {
-            comandaElement.textContent = `Comanda: #${this.comandaId}`;
-            
-            if (this.itens.length > 0) {
-                itensElement.innerHTML = this.itens.map(item => `
-                    <div class="item-comanda">
-                        <span>${item.nome} x${item.quantidade}</span>
-                        <span>${this.formatarMoeda(item.subtotal)}</span>
-                    </div>
-                `).join('');
-                
-                btnFinalizar.disabled = false;
-            } else {
-                itensElement.innerHTML = '<p class="empty-message">Nenhum item adicionado</p>';
-                btnFinalizar.disabled = true;
-            }
-
-            this.calcularTotais();
-        } else {
-            comandaElement.textContent = 'Comanda: --';
-            itensElement.innerHTML = '<p class="empty-message">Nenhuma comanda aberta</p>';
-            btnFinalizar.disabled = true;
-        }
-    }
-
-    calcularTotais() {
-        const subtotal = this.itens.reduce((sum, item) => sum + parseFloat(item.subtotal), 0);
-        // Calcular taxa (implementar lógica das configurações)
-        const taxa = 0;
-        const total = subtotal + taxa;
-
-        document.getElementById('subtotal').textContent = this.formatarMoeda(subtotal);
-        document.getElementById('taxa').textContent = this.formatarMoeda(taxa);
-        document.getElementById('total').textContent = this.formatarMoeda(total);
-    }
-
-    async finalizarComanda() {
-        if (!this.comandaId || this.itens.length === 0) return;
-
-        if (confirm('Deseja finalizar esta comanda?')) {
-            try {
-                const response = await fetch('../../api/finalizar_comanda.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        comanda_id: this.comandaId
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    this.mostrarNotificacao('Comanda finalizada com sucesso!', 'success');
-                    this.comandaId = null;
-                    this.itens = [];
-                    this.atualizarInterfaceComanda();
-                }
-            } catch (error) {
-                console.error('Erro ao finalizar comanda:', error);
-            }
-        }
-    }
-}
-
-// Inicializar caixa
-const caixa = new Caixa();
-
-// Funções globais para onclick
-function novaComanda() {
-    caixa.novaComanda();
-}
-
-function carregarProdutos(categoriaId) {
-    caixa.carregarProdutos(categoriaId);
 }
 
 function voltarCategorias() {
-    caixa.voltarCategorias();
+    document.getElementById('produtos-section').style.display = 'none';
+    document.getElementById('categorias-section').style.display = 'block';
 }
 
-function finalizarComanda() {
-    caixa.finalizarComanda();
+async function adicionarProduto(produtoId, produtoNome, produtoPreco) {
+    console.log('➕ Adicionando produto:', produtoId, produtoNome, produtoPreco);
+    
+    if (!comandaAtualId) {
+        mostrarNotificacao('Crie uma comanda primeiro!', 'warning');
+        return;
+    }
+
+    try {
+        const result = await apiCall('adicionar_item.php', {
+            method: 'POST',
+            body: JSON.stringify({
+                comanda_id: comandaAtualId,
+                produto_id: produtoId,
+                quantidade: 1
+            })
+        });
+        
+        if (result.success) {
+            // Recarregar itens da comanda
+            await carregarItensComanda();
+            mostrarNotificacao(produtoNome + ' adicionado à comanda!', 'success');
+            
+            // Verificar no banco
+            console.log('🔍 Verifique no banco: SELECT * FROM itens_comanda ORDER BY id DESC LIMIT 1;');
+        } else {
+            mostrarNotificacao('Erro ao adicionar produto: ' + result.message, 'error');
+        }
+    } catch (error) {
+        console.error('❌ Erro ao adicionar produto:', error);
+    }
 }
+
+async function carregarItensComanda() {
+    if (!comandaAtualId) return;
+
+    try {
+        const data = await apiCall(`itens_comanda.php?comanda_id=${comandaAtualId}`);
+        itensComanda = data.itens || [];
+        
+        atualizarInterfaceComanda();
+    } catch (error) {
+        console.error('Erro ao carregar itens:', error);
+    }
+}
+
+function atualizarInterfaceComanda() {
+    const comandaElement = document.getElementById('numero-comanda');
+    const itensElement = document.getElementById('itens-comanda');
+    const btnFinalizar = document.getElementById('btn-finalizar');
+
+    if (comandaAtualId) {
+        comandaElement.textContent = `Comanda: #${comandaAtualId}`;
+        
+        if (itensComanda.length > 0) {
+            itensElement.innerHTML = itensComanda.map(item => `
+                <div class="item-comanda">
+                    <span>${escapeHtml(item.nome)} x${item.quantidade}</span>
+                    <span>R$ ${parseFloat(item.subtotal).toFixed(2)}</span>
+                </div>
+            `).join('');
+            
+            btnFinalizar.disabled = false;
+            
+            // Calcular totais
+            const subtotal = itensComanda.reduce((sum, item) => sum + parseFloat(item.subtotal), 0);
+            document.getElementById('subtotal').textContent = 'R$ ' + subtotal.toFixed(2);
+            document.getElementById('total').textContent = 'R$ ' + subtotal.toFixed(2);
+        } else {
+            itensElement.innerHTML = '<p class="empty-message">Nenhum item adicionado</p>';
+            document.getElementById('subtotal').textContent = 'R$ 0,00';
+            document.getElementById('total').textContent = 'R$ 0,00';
+            btnFinalizar.disabled = true;
+        }
+    } else {
+        comandaElement.textContent = 'Comanda: --';
+        itensElement.innerHTML = '<p class="empty-message">Nenhuma comanda aberta</p>';
+        document.getElementById('subtotal').textContent = 'R$ 0,00';
+        document.getElementById('total').textContent = 'R$ 0,00';
+        btnFinalizar.disabled = true;
+    }
+}
+
+async function finalizarComanda() {
+    if (!comandaAtualId) {
+        mostrarNotificacao('Nenhuma comanda aberta!', 'error');
+        return;
+    }
+
+    if (itensComanda.length === 0) {
+        mostrarNotificacao('Adicione itens à comanda primeiro!', 'warning');
+        return;
+    }
+
+    if (confirm('Deseja finalizar a comanda #' + comandaAtualId + '?')) {
+        try {
+            const result = await apiCall('finalizar_comanda.php', {
+                method: 'POST',
+                body: JSON.stringify({
+                    comanda_id: comandaAtualId
+                })
+            });
+            
+            if (result.success) {
+                mostrarNotificacao('Comanda #' + comandaAtualId + ' finalizada com sucesso!', 'success');
+                
+                // Resetar comanda
+                comandaAtualId = null;
+                itensComanda = [];
+                atualizarInterfaceComanda();
+                
+                console.log('🔍 Verifique no banco: SELECT * FROM comandas WHERE id = ' + comandaAtualId + ';');
+            } else {
+                mostrarNotificacao('Erro ao finalizar comanda: ' + result.message, 'error');
+            }
+        } catch (error) {
+            mostrarNotificacao('Erro ao finalizar comanda', 'error');
+        }
+    }
+}
+
+// Funções auxiliares
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function mostrarNotificacao(mensagem, tipo = 'info') {
+    const cores = {
+        success: '#27ae60',
+        error: '#e74c3c',
+        warning: '#f39c12',
+        info: '#3498db'
+    };
+    
+    const notificacao = document.createElement('div');
+    notificacao.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 20px;
+        background: ${cores[tipo] || '#3498db'};
+        color: white;
+        border-radius: 5px;
+        z-index: 1000;
+        font-weight: bold;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    `;
+    notificacao.textContent = mensagem;
+    
+    document.body.appendChild(notificacao);
+    
+    setTimeout(() => {
+        if (document.body.contains(notificacao)) {
+            document.body.removeChild(notificacao);
+        }
+    }, 3000);
+}
+
+// Inicialização quando a página carregar
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('✅ DOM Carregado - Sistema de caixa pronto!');
+    
+    // Carregar comanda aberta se existir
+    carregarComandaAberta();
+});
+
+async function carregarComandaAberta() {
+    console.log('🔄 Buscando comanda aberta...');
+    try {
+        const result = await apiCall('comanda_aberta.php');
+        
+        if (result.success && result.comanda) {
+            comandaAtualId = result.comanda.id;
+            console.log('ℹ️ Comanda aberta encontrada:', comandaAtualId);
+            await carregarItensComanda();
+        } else {
+            console.log('ℹ️ Nenhuma comanda aberta encontrada');
+        }
+    } catch (error) {
+        console.error('❌ Erro ao carregar comanda:', error);
+    }
+}
+
+// Tornar funções globais
+window.novaComanda = novaComanda;
+window.carregarProdutos = carregarProdutos;
+window.voltarCategorias = voltarCategorias;
+window.adicionarProduto = adicionarProduto;
+window.finalizarComanda = finalizarComanda;
+
+console.log('✅ Funções globais definidas');
