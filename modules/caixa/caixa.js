@@ -160,18 +160,6 @@ class Caixa {
         document.getElementById('total').textContent = this.formatarMoeda(total);
     }
 
-    formatarMoeda(valor) {
-        return new Intl.NumberFormat('pt-BR', {
-            style: 'currency',
-            currency: 'BRL'
-        }).format(valor);
-    }
-
-    mostrarNotificacao(mensagem, tipo = 'info') {
-        // Implementar sistema de notificações visual
-        alert(`${tipo.toUpperCase()}: ${mensagem}`);
-    }
-
     async finalizarComanda() {
         if (!this.comandaId || this.itens.length === 0) return;
 
