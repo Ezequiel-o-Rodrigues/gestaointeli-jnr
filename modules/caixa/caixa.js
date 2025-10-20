@@ -1,6 +1,3 @@
-// Debug inicial
-console.log('✅ caixa.js carregado com sucesso');
-
 // Variáveis globais
 let comandaAtualId = null;
 let categoriaAtual = null;
@@ -36,7 +33,6 @@ async function apiCall(endpoint, options = {}) {
         return data;
         
     } catch (error) {
-        console.error('❌ Erro na API:', error);
         mostrarNotificacao('Erro de conexão: ' + error.message, 'error');
         throw error;
     }

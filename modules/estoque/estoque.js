@@ -20,11 +20,6 @@ class Estoque {
             e.preventDefault();
             this.salvarProduto();
         });
-
-        // Filtros
-        document.getElementById('filtro-produto').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.filtrarProdutos();
-        });
     }
 
     abrirModalEntrada(produtoId) {

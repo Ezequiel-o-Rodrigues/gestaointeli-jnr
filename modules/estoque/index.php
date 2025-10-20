@@ -68,8 +68,6 @@ $fornecedores = $stmt_fornecedores->fetchAll(PDO::FETCH_ASSOC);
             </select>
             <button class="btn" onclick="filtrarProdutos()">Filtrar</button>
         </div>
-        
-        <button class="btn btn-primary" onclick="abrirModalProduto()">+ Novo Produto</button>
     </div>
 
     <div class="produtos-section">
