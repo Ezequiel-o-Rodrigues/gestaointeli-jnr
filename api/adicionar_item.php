@@ -1,7 +1,7 @@
 <?php
-require_once '../config/database.php';
-
-header('Content-Type: application/json');
+// CORRIGIR CAMINHO
+require_once __DIR__ . '/../config/database.php';
+header('Content-Type: application/json; charset=utf-8');
 
 $data = json_decode(file_get_contents('php://input'), true);
 
@@ -34,6 +34,11 @@ try {
         $subtotal
     ]);
     
+    // ATUALIZAR TOTAL DA COMANDA
+    $query_update = "UPDATE comandas SET valor_total = valor_total + ? WHERE id = ?";
+    $stmt_update = $db->prepare($query_update);
+    $stmt_update->execute([$subtotal, $data['comanda_id']]);
+    
     echo json_encode([
         'success' => true,
         'message' => 'Item adicionado com sucesso',
@@ -41,6 +46,7 @@ try {
     ]);
     
 } catch (Exception $e) {
+    http_response_code(500);
     echo json_encode([
         'success' => false,
         'message' => 'Erro: ' . $e->getMessage()

@@ -2,23 +2,32 @@
 class SistemaRestaurante {
     constructor() {
         this.comandaAtual = null;
+        this.baseUrl = window.location.origin + '/gestaointeli-jnr/'; // URL absoluta
         this.init();
     }
 
     init() {
-        this.carregarComandaAberta();
+       // this.carregarComandaAberta();
         this.configurarEventListeners();
     }
 
     carregarComandaAberta() {
-        // Verificar se existe comanda aberta
-        fetch('api/comanda_aberta.php')
-            .then(response => response.json())
+        // URL ABSOLUTA para a API
+        fetch(this.baseUrl + 'api/comanda_aberta.php')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('API não encontrada');
+                }
+                return response.json();
+            })
             .then(data => {
-                if (data.comanda) {
+                if (data.success && data.comanda) {
                     this.comandaAtual = data.comanda;
                     this.atualizarInterfaceComanda();
                 }
+            })
+            .catch(error => {
+                console.log('Nenhuma comanda aberta ou API indisponível:', error.message);
             });
     }
 
@@ -51,12 +60,26 @@ class SistemaRestaurante {
     }
 
     mostrarNotificacao(mensagem, tipo = 'info') {
-        // Implementar sistema de notificações
         console.log(`${tipo.toUpperCase()}: ${mensagem}`);
+    }
+
+    // Método placeholder para atualizar interface
+    atualizarInterfaceComanda() {
+        console.log('Comanda atual:', this.comandaAtual);
+        // Implementar conforme necessidade
+    }
+
+    novaComanda() {
+        console.log('Nova comanda - implementar');
+    }
+
+    finalizarComanda() {
+        console.log('Finalizar comanda - implementar');
     }
 }
 
 // Inicializar sistema quando DOM estiver pronto
 document.addEventListener('DOMContentLoaded', function() {
     window.sistema = new SistemaRestaurante();
+    console.log('Sistema Restaurante inicializado');
 });

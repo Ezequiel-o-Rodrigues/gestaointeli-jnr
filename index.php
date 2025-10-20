@@ -1,6 +1,6 @@
 <?php
 // Definir URL base
-$base_url = '/cardapio_jnr/gestaointeli-jnr/gestaointeli-jnr/';
+$base_url = ' /gestaointeli-jnr/ ';
 
 // Incluir arquivos com caminhos absolutos
 require_once __DIR__ . '/config/database.php';
@@ -14,22 +14,22 @@ require_once __DIR__ . '/includes/header.php';
 </div>
 
 <div class="modules-grid">
-    <div class="module-card" onclick="location.href='<?php echo $base_url; ?>modules/caixa/index.php'">
+    <div class="module-card" onclick="location.href='/gestaointeli-jnr/modules/caixa/index.php'">
         <h3>💰 Caixa</h3>
         <p>Gerenciar vendas e comandas</p>
     </div>
-    
-    <div class="module-card" onclick="location.href='<?php echo $base_url; ?>modules/estoque/index.php'">
+
+    <div class="module-card" onclick="location.href='/gestaointeli-jnr/modules/estoque/index.php'">
         <h3>📦 Estoque</h3>
         <p>Controle de produtos e reposição</p>
     </div>
-    
-    <div class="module-card" onclick="location.href='<?php echo $base_url; ?>modules/relatorios/index.php'">
+
+    <div class="module-card" onclick="location.href='/gestaointeli-jnr/modules/relatorios/index.php'">
         <h3>📊 Relatórios</h3>
         <p>Análises e métricas</p>
     </div>
-    
-    <div class="module-card" onclick="location.href='<?php echo $base_url; ?>modules/admin/index.php'">
+
+    <div class="module-card" onclick="location.href='/gestaointeli-jnr/modules/admin/index.php'">
         <h3>⚙️ Admin</h3>
         <p>Configurações do sistema</p>
     </div>

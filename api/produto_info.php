@@ -1,7 +1,6 @@
 <?php
-require_once '../config/database.php';
-
-header('Content-Type: application/json');
+require_once __DIR__ . '/../config/database.php';
+header('Content-Type: application/json; charset=utf-8');
 
 if (!isset($_GET['id'])) {
     echo json_encode(['error' => 'ID do produto não informado']);

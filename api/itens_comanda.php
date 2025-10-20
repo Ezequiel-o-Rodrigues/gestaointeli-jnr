@@ -1,7 +1,7 @@
 <?php
-require_once '../config/database.php';
-
-header('Content-Type: application/json');
+// CORRIGIR CAMINHO
+require_once __DIR__ . '/../config/database.php';
+header('Content-Type: application/json; charset=utf-8');
 
 if (!isset($_GET['comanda_id'])) {
     echo json_encode(['itens' => []]);
@@ -24,6 +24,7 @@ try {
     echo json_encode(['itens' => $itens]);
     
 } catch (Exception $e) {
+    http_response_code(500);
     echo json_encode(['itens' => [], 'error' => $e->getMessage()]);
 }
 ?>

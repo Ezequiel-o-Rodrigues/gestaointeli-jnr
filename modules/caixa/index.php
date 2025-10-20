@@ -1,6 +1,6 @@
 <?php
 // CORRIGIR CAMINHOS - ajuste conforme sua estrutura real
-$base_path = '/cardapio_jnr/gestaointeli-jnr/gestaointeli-jnr/';
+$base_path = ' /gestaointeli-jnr/';
 
 // Usar caminhos absolutos com __DIR__
 require_once __DIR__ . '/../../config/database.php';
@@ -11,21 +11,63 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-$database = new Database();
-$db = $database->getConnection();
-
-// Buscar categorias
-$query = "SELECT * FROM categorias ORDER BY nome";
-$stmt = $db->prepare($query);
-$stmt->execute();
-$categorias = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Buscar comanda aberta atual
+// INICIALIZAR VARIÁVEIS COM VALORES PADRÃO
 $comanda_aberta = null;
-$query_comanda = "SELECT * FROM comandas WHERE status = 'aberta' ORDER BY id DESC LIMIT 1";
-$stmt_comanda = $db->prepare($query_comanda);
-$stmt_comanda->execute();
-$comanda_aberta = $stmt_comanda->fetch(PDO::FETCH_ASSOC);
+$produtos_por_categoria = [];
+$total_comanda = 0;
+$categorias = [];
+
+try {
+    $database = new Database();
+    $db = $database->getConnection();
+
+    // Buscar TODOS os produtos ativos com suas categorias
+    $query = "SELECT p.*, c.nome as categoria_nome, c.id as categoria_id 
+              FROM produtos p 
+              JOIN categorias c ON p.categoria_id = c.id 
+              WHERE p.ativo = 1 
+              ORDER BY c.nome, p.nome";
+    $stmt = $db->prepare($query);
+    $stmt->execute();
+    $produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Agrupar produtos por categoria
+    foreach ($produtos as $produto) {
+        $categoria_id = $produto['categoria_id'];
+        if (!isset($produtos_por_categoria[$categoria_id])) {
+            $produtos_por_categoria[$categoria_id] = [
+                'categoria_nome' => $produto['categoria_nome'],
+                'produtos' => []
+            ];
+        }
+        $produtos_por_categoria[$categoria_id]['produtos'][] = $produto;
+    }
+
+    // Buscar comanda aberta atual
+    $query_comanda = "SELECT * FROM comandas WHERE status = 'aberta' ORDER BY id DESC LIMIT 1";
+    $stmt_comanda = $db->prepare($query_comanda);
+    $stmt_comanda->execute();
+    $comanda_aberta = $stmt_comanda->fetch(PDO::FETCH_ASSOC);
+    
+    // Definir total da comanda
+    if ($comanda_aberta) {
+        $total_comanda = number_format($comanda_aberta['valor_total'] ?? 0, 2, ',', '.');
+    }
+
+    // BUSCAR CATEGORIAS PARA O SELECT
+    $query_categorias = "SELECT * FROM categorias ORDER BY nome";
+    $stmt_categorias = $db->prepare($query_categorias);
+    $stmt_categorias->execute();
+    $categorias = $stmt_categorias->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (Exception $e) {
+    // Log do erro sem quebrar a aplicação
+    error_log("Erro ao carregar dados: " . $e->getMessage());
+    $produtos_por_categoria = [];
+    $comanda_aberta = null;
+    $total_comanda = '0,00';
+    $categorias = [];
+}
 ?>
 
 <!DOCTYPE html>
@@ -36,149 +78,164 @@ $comanda_aberta = $stmt_comanda->fetch(PDO::FETCH_ASSOC);
     <title>Caixa - Sistema Restaurante</title>
     <link rel="stylesheet" href="<?php echo $base_path; ?>css/style.css">
     <style>
-        /* Estilos específicos para o caixa */
-        .caixa-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 20px;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        .caixa-header {
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8f9fa;
+            color: #333;
+            height: 100vh;
+        }
+
+        /* CABEÇALHO */
+        .mini-header {
+            background: #2c3e50;
+            color: white;
+            padding: 8px 15px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 2rem;
-            padding: 1.5rem;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            height: 50px;
         }
 
-        .comanda-info {
+        .mini-header h1 {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .btn-voltar {
+            background: #34495e;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            text-decoration: none;
+        }
+
+        /* COMANDA HORIZONTAL - NOVO LAYOUT */
+        .comanda-horizontal {
+            background: white;
+            border-bottom: 2px solid #3498db;
+            padding: 8px 15px;
             display: flex;
             align-items: center;
-            gap: 1rem;
+            gap: 15px;
+            height: 70px;
+            flex-shrink: 0;
         }
 
-        .caixa-content {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 2rem;
+        .comanda-info-horizontal {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 120px;
         }
 
-        .categorias-section, .produtos-section {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        .comanda-numero {
+            font-weight: bold;
+            color: #2c3e50;
+            font-size: 1rem;
         }
 
-        .comanda-section {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        .itens-comanda-horizontal {
+            flex: 1;
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 5px 0;
+            min-height: 50px;
+            align-items: center;
         }
 
-        .categorias-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-top: 1rem;
+        .item-comanda-horizontal {
+            background: #ecf0f1;
+            border: 1px solid #bdc3c7;
+            border-radius: 20px;
+            padding: 6px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
 
-        .categoria-card {
-            padding: 1.5rem;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s;
+        .item-nome {
+            font-weight: 600;
+            color: #2c3e50;
         }
 
-        .categoria-card:hover {
-            border-color: #3498db;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        .item-quantidade {
+            background: #3498db;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: bold;
         }
 
-        .produtos-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 1rem;
-            margin: 1rem 0;
-        }
-
-        .produto-card {
-            padding: 1rem;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .produto-card:hover {
-            border-color: #3498db;
-            background: #f8f9fa;
-        }
-
-        .preco {
+        .item-preco {
             font-weight: bold;
             color: #27ae60;
-            margin: 0.5rem 0;
         }
 
-        .itens-comanda {
-            max-height: 300px;
-            overflow-y: auto;
-            margin: 1rem 0;
-            border: 1px solid #eee;
-            border-radius: 5px;
-            padding: 1rem;
-        }
-
-        .item-comanda {
+        .btn-remover {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
             display: flex;
-            justify-content: space-between;
-            padding: 0.5rem;
-            border-bottom: 1px solid #eee;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            cursor: pointer;
+            padding: 0;
         }
 
-        .item-comanda:last-child {
-            border-bottom: none;
+        .btn-remover:hover {
+            background: #c0392b;
         }
 
-        .total-section {
-            background: #f8f9fa;
-            padding: 1rem;
-            border-radius: 5px;
-            margin-top: 1rem;
+        .total-comanda {
+            font-weight: bold;
+            color: #2c3e50;
+            font-size: 1rem;
+            min-width: 100px;
+            text-align: right;
         }
 
-        .totais div {
-            display: flex;
-            justify-content: space-between;
-            margin: 0.5rem 0;
-            font-size: 1.1rem;
-        }
-
-        .empty-message {
-            text-align: center;
+        .empty-comanda {
             color: #95a5a6;
             font-style: italic;
-            padding: 2rem;
+            font-size: 0.85rem;
+        }
+
+        /* BOTÕES DE AÇÃO */
+        .botoes-comanda {
+            display: flex;
+            gap: 8px;
+            align-items: center;
         }
 
         .btn {
-            padding: 0.75rem 1.5rem;
+            padding: 6px 12px;
             border: none;
-            border-radius: 5px;
+            border-radius: 4px;
             cursor: pointer;
-            font-size: 1rem;
-            transition: background 0.3s;
-            text-decoration: none;
-            display: inline-block;
+            font-size: 0.8rem;
+            height: 32px;
         }
 
         .btn-primary {
@@ -186,120 +243,267 @@ $comanda_aberta = $stmt_comanda->fetch(PDO::FETCH_ASSOC);
             color: white;
         }
 
-        .btn-primary:hover {
-            background: #2980b9;
-        }
-
         .btn-success {
             background: #27ae60;
             color: white;
-        }
-
-        .btn-success:hover {
-            background: #219a52;
         }
 
         .btn:disabled {
             background: #bdc3c7;
             cursor: not-allowed;
         }
+
+        /* CONTEÚDO PRINCIPAL - MAIS ESPAÇO PARA PRODUTOS */
+        .conteudo-principal {
+            height: calc(100vh - 120px);
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+        }
+
+        /* FILTROS */
+        .filtros-container {
+            background: white;
+            padding: 8px 12px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 150px;
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            height: 32px;
+        }
+
+        .categoria-filtro {
+            padding: 6px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            background: white;
+            height: 32px;
+            min-width: 120px;
+        }
+
+        .contador-produtos {
+            color: #7f8c8d;
+            font-size: 0.8rem;
+            white-space: nowrap;
+        }
+
+        /* PRODUTOS */
+        .produtos-scroll-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+            height: 100%;
+        }
+
+        .categoria-produtos {
+            margin-bottom: 15px;
+        }
+
+        .categoria-titulo {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            padding: 6px 10px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .produtos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .produto-card {
+            padding: 8px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 80px;
+        }
+
+        .produto-card:hover {
+            border-color: #3498db;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(52, 152, 219, 0.2);
+        }
+
+        .produto-nome {
+            font-weight: 600;
+            font-size: 0.75rem;
+            line-height: 1.2;
+            margin-bottom: 4px;
+            color: #2c3e50;
+        }
+
+        .produto-preco {
+            font-weight: bold;
+            color: #27ae60;
+            font-size: 0.8rem;
+            margin: 3px 0;
+        }
+
+        .produto-estoque {
+            font-size: 0.7rem;
+            color: #7f8c8d;
+        }
+
+        .estoque-baixo {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+
+        /* SCROLL HORIZONTAL PARA COMANDA */
+        .itens-comanda-horizontal::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .itens-comanda-horizontal::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 2px;
+        }
+
+        .itens-comanda-horizontal::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 2px;
+        }
+
+        @media (max-width: 768px) {
+            .comanda-horizontal {
+                flex-direction: column;
+                height: auto;
+                padding: 8px;
+                gap: 8px;
+            }
+            
+            .itens-comanda-horizontal {
+                order: 2;
+                width: 100%;
+            }
+            
+            .botoes-comanda {
+                order: 1;
+                width: 100%;
+                justify-content: space-between;
+            }
+            
+            .produtos-grid {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            }
+        }
     </style>
 </head>
 <body>
-    <header class="header">
-        <div class="container">
-            <h1>🍽️ Sistema Restaurante - Caixa</h1>
-            <nav class="main-nav">
-                <a href="<?php echo $base_path; ?>index.php">🏠 Início</a>
-                <a href="<?php echo $base_path; ?>modules/caixa/">💰 Caixa</a>
-                <a href="<?php echo $base_path; ?>modules/estoque/">📦 Estoque</a>
-                <a href="<?php echo $base_path; ?>modules/relatorios/">📊 Relatórios</a>
-                <a href="<?php echo $base_path; ?>modules/admin/">⚙️ Admin</a>
-            </nav>
+    <!-- CABEÇALHO -->
+    <div class="mini-header">
+        <h1>💰 Caixa Rápido</h1>
+        <a href="<?php echo $base_path; ?>index.php" class="btn-voltar">🏠 Início</a>
+    </div>
+
+    <!-- COMANDA HORIZONTAL - NOVA POSIÇÃO -->
+    <div class="comanda-horizontal">
+        <div class="comanda-info-horizontal">
+            <span class="comanda-numero" id="numero-comanda">
+                <?php echo $comanda_aberta ? '#' . $comanda_aberta['id'] : '--'; ?>
+            </span>
+            <button class="btn btn-primary" onclick="novaComanda()">Nova</button>
         </div>
-    </header>
-
-    <main class="container">
-        <div class="caixa-container">
-            <div class="caixa-header">
-                <h2>💰 Sistema de Caixa</h2>
-                <div class="comanda-info">
-                    <span id="numero-comanda">Comanda: <?php echo $comanda_aberta ? '#' . $comanda_aberta['id'] : '--'; ?></span>
-                    <button class="btn btn-primary" onclick="novaComanda()">Nova Comanda</button>
-                </div>
+        
+        <div class="itens-comanda-horizontal" id="itens-comanda">
+            <div class="empty-comanda">
+                <?php echo $comanda_aberta ? 'Carregando itens...' : 'Nenhuma comanda aberta'; ?>
             </div>
+        </div>
+        
+        <div class="botoes-comanda">
+            <span class="total-comanda" id="total-comanda">
+                R$ <?php echo $total_comanda; ?>
+            </span>
+            <button class="btn btn-success" onclick="finalizarComanda()" id="btn-finalizar" 
+                    <?php echo (!$comanda_aberta) ? 'disabled' : ''; ?>>
+                💰 Finalizar
+            </button>
+        </div>
+    </div>
 
-            <div class="caixa-content">
-                <div>
-                    <div class="categorias-section" id="categorias-section">
-                        <h3>Categorias de Produtos</h3>
-                        <div class="categorias-grid" id="categorias-grid">
-                            <?php foreach($categorias as $categoria): ?>
-                            <div class="categoria-card" onclick="carregarProdutos(<?= $categoria['id'] ?>, '<?= htmlspecialchars($categoria['nome']) ?>')">
-                                <h4><?= htmlspecialchars($categoria['nome']) ?></h4>
-                                <p><?= htmlspecialchars($categoria['descricao']) ?></p>
-                            </div>
-                            <?php endforeach; ?>
-                        </div>
+    <!-- CONTEÚDO PRINCIPAL - MAIS ESPAÇO PARA PRODUTOS -->
+    <div class="conteudo-principal">
+        <div class="filtros-container">
+            <input type="text" id="search-produto" class="search-input" placeholder="🔍 Buscar..." onkeyup="filtrarProdutos()">
+            <select id="filtro-categoria" class="categoria-filtro" onchange="filtrarProdutos()">
+                <option value="">Todas categorias</option>
+                <?php foreach($categorias as $categoria): ?>
+                <option value="<?= $categoria['id'] ?>"><?= htmlspecialchars($categoria['nome']) ?></option>
+                <?php endforeach; ?>
+            </select>
+            <span id="contador-produtos" class="contador-produtos"></span>
+        </div>
+
+        <div class="produtos-scroll-container" id="produtos-container">
+            <?php if (!empty($produtos_por_categoria)): ?>
+                <?php foreach($produtos_por_categoria as $categoria_id => $categoria_data): ?>
+                <div class="categoria-produtos" data-categoria="<?= $categoria_id ?>">
+                    <div class="categoria-titulo">
+                        <?= htmlspecialchars($categoria_data['categoria_nome']) ?>
+                        <span class="contador-categoria">(<?= count($categoria_data['produtos']) ?>)</span>
                     </div>
-
-                    <div class="produtos-section" id="produtos-section" style="display: none;">
-                        <h3 id="titulo-produtos">Produtos da Categoria</h3>
-                        <div class="produtos-grid" id="produtos-grid"></div>
-                        <button class="btn" onclick="voltarCategorias()" style="margin-top: 1rem;">← Voltar para Categorias</button>
-                    </div>
-                </div>
-
-                <div class="comanda-section">
-                    <h3>Comanda Atual</h3>
-                    <div class="itens-comanda" id="itens-comanda">
-                        <?php if($comanda_aberta): ?>
-                            <?php
-                            // Buscar itens da comanda
-                            $query_itens = "SELECT ic.*, p.nome as produto_nome 
-                                          FROM itens_comanda ic 
-                                          JOIN produtos p ON ic.produto_id = p.id 
-                                          WHERE ic.comanda_id = ?";
-                            $stmt_itens = $db->prepare($query_itens);
-                            $stmt_itens->execute([$comanda_aberta['id']]);
-                            $itens = $stmt_itens->fetchAll(PDO::FETCH_ASSOC);
+                    <div class="produtos-grid">
+                        <?php foreach($categoria_data['produtos'] as $produto): ?>
+                        <div class="produto-card" 
+                             data-produto-id="<?= $produto['id'] ?>"
+                             data-produto-nome="<?= htmlspecialchars($produto['nome']) ?>"
+                             data-produto-preco="<?= $produto['preco'] ?>"
+                             data-produto-categoria="<?= $categoria_id ?>"
+                             data-produto-estoque="<?= $produto['estoque_atual'] ?>"
+                             onclick="adicionarProduto(<?= $produto['id'] ?>, '<?= htmlspecialchars(addslashes($produto['nome'])) ?>', <?= $produto['preco'] ?>)">
                             
-                            if(count($itens) > 0): ?>
-                                <?php foreach($itens as $item): ?>
-                                <div class="item-comanda">
-                                    <span><?= htmlspecialchars($item['produto_nome']) ?> x<?= $item['quantidade'] ?></span>
-                                    <span>R$ <?= number_format($item['subtotal'], 2, ',', '.') ?></span>
-                                </div>
-                                <?php endforeach; ?>
-                            <?php else: ?>
-                                <p class="empty-message">Nenhum item adicionado</p>
-                            <?php endif; ?>
-                        <?php else: ?>
-                            <p class="empty-message">Nenhuma comanda aberta</p>
-                        <?php endif; ?>
-                    </div>
-                    
-                    <div class="total-section">
-                        <div class="totais">
-                            <div>Subtotal: <span id="subtotal">R$ <?php echo $comanda_aberta ? number_format($comanda_aberta['valor_total'], 2, ',', '.') : '0,00'; ?></span></div>
-                            <div>Taxa: <span id="taxa">R$ 0,00</span></div>
-                            <div><strong>Total: <span id="total">R$ <?php echo $comanda_aberta ? number_format($comanda_aberta['valor_total'], 2, ',', '.') : '0,00'; ?></span></strong></div>
+                            <div class="produto-nome"><?= htmlspecialchars($produto['nome']) ?></div>
+                            <div class="produto-preco">R$ <?= number_format($produto['preco'], 2, ',', '.') ?></div>
+                            <div class="produto-estoque <?= $produto['estoque_atual'] <= $produto['estoque_minimo'] ? 'estoque-baixo' : '' ?>">
+                                Est: <?= $produto['estoque_atual'] ?>
+                            </div>
                         </div>
-                        <button class="btn btn-success" onclick="finalizarComanda()" 
-                                <?php echo (!$comanda_aberta || $comanda_aberta['valor_total'] == 0) ? 'disabled' : ''; ?> 
-                                id="btn-finalizar" style="width: 100%; margin-top: 1rem;">
-                            Finalizar Venda
-                        </button>
+                        <?php endforeach; ?>
                     </div>
                 </div>
-            </div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <div style="text-align: center; padding: 40px; color: #7f8c8d;">
+                    <div style="font-size: 3rem; margin-bottom: 10px;">📦</div>
+                    <h3>Nenhum produto cadastrado</h3>
+                    <p>Cadastre produtos no sistema primeiro</p>
+                </div>
+            <?php endif; ?>
         </div>
-    </main>
+    </div>
 
-    
-
-    <!-- Incluir o arquivo JavaScript externo (se existir) -->
+    <!-- JavaScript -->
+    <script>
+        // Passar variáveis PHP para JavaScript
+        window.appConfig = {
+            comandaAtualId: <?php echo isset($comanda_aberta) && $comanda_aberta ? $comanda_aberta['id'] : 'null'; ?>,
+            basePath: '<?php echo $base_path; ?>'
+        };
+    </script>
     <script src="<?php echo $base_path; ?>modules/caixa/caixa.js"></script>
-
 </body>
 </html>

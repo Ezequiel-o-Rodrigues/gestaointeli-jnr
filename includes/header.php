@@ -1,6 +1,6 @@
 <?php
 // URL base FIXA - ajuste conforme sua instalação
-$base_url = '/cardapio_jnr/gestaointeli-jnr/gestaointeli-jnr/';
+$base_url = '/gestaointeli-jnr/';
 ?>
 
 <!DOCTYPE html>
@@ -10,6 +10,7 @@ $base_url = '/cardapio_jnr/gestaointeli-jnr/gestaointeli-jnr/';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema Restaurante</title>
     <link rel="stylesheet" href="<?php echo $base_url; ?>css/style.css">
+    <script src="<?php echo $base_url; ?>js/main.js"></script>
 </head>
 <body>
     <header class="header">

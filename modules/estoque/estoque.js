@@ -30,6 +30,10 @@ class Estoque {
                 document.getElementById('produto_id_entrada').value = produto.id;
                 document.getElementById('nome-produto-entrada').textContent = produto.nome;
                 document.getElementById('modal-entrada').style.display = 'block';
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                this.showToast('Erro ao carregar dados do produto', 'error');
             });
     }
 
@@ -65,6 +69,11 @@ class Estoque {
             observacao: document.getElementById('observacao_entrada').value
         };
 
+        const btn = document.querySelector('#form-entrada button[type="submit"]');
+        const originalContent = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Registrando...';
+        btn.disabled = true;
+
         try {
             const response = await fetch('../../api/registrar_entrada.php', {
                 method: 'POST',
@@ -77,15 +86,20 @@ class Estoque {
             const result = await response.json();
 
             if (result.success) {
-                alert('Entrada registrada com sucesso!');
+                this.showToast('Entrada registrada com sucesso!', 'success');
                 this.fecharModalEntrada();
-                location.reload(); // Recarregar para atualizar dados
+                setTimeout(() => {
+                    location.reload(); // Recarregar para atualizar dados
+                }, 1500);
             } else {
-                alert('Erro: ' + result.message);
+                throw new Error(result.message || 'Erro ao registrar entrada');
             }
         } catch (error) {
             console.error('Erro:', error);
-            alert('Erro ao registrar entrada');
+            this.showToast('Erro: ' + error.message, 'error');
+        } finally {
+            btn.innerHTML = originalContent;
+            btn.disabled = false;
         }
     }
 
@@ -99,6 +113,11 @@ class Estoque {
             estoque_inicial: document.getElementById('estoque_inicial_produto').value || 0
         };
 
+        const btn = document.querySelector('#form-produto button[type="submit"]');
+        const originalContent = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Salvando...';
+        btn.disabled = true;
+
         try {
             const response = await fetch('../../api/salvar_produto.php', {
                 method: 'POST',
@@ -111,15 +130,20 @@ class Estoque {
             const result = await response.json();
 
             if (result.success) {
-                alert('Produto salvo com sucesso!');
+                this.showToast('Produto salvo com sucesso!', 'success');
                 this.fecharModalProduto();
-                location.reload();
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
             } else {
-                alert('Erro: ' + result.message);
+                throw new Error(result.message || 'Erro ao salvar produto');
             }
         } catch (error) {
             console.error('Erro:', error);
-            alert('Erro ao salvar produto');
+            this.showToast('Erro: ' + error.message, 'error');
+        } finally {
+            btn.innerHTML = originalContent;
+            btn.disabled = false;
         }
     }
 
@@ -135,52 +159,103 @@ class Estoque {
             document.getElementById('estoque_minimo_produto').value = produto.estoque_minimo;
         } catch (error) {
             console.error('Erro:', error);
+            this.showToast('Erro ao carregar dados do produto', 'error');
         }
     }
 
-    async toggleProduto(produtoId, novoStatus) {
-        if (confirm(`Deseja ${novoStatus ? 'ativar' : 'desativar'} este produto?`)) {
-            try {
-                const response = await fetch('../../api/toggle_produto.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        produto_id: produtoId,
-                        ativo: novoStatus
-                    })
-                });
+    async toggleProduto(produtoId, novoStatus, button) {
+        const confirmMessage = novoStatus ? 
+            'Deseja ativar este produto?' : 
+            'Deseja desativar este produto?';
+            
+        if (!confirm(confirmMessage)) return;
 
-                const result = await response.json();
+        const originalContent = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-spinner fa-pulse"></i>';
+        button.disabled = true;
 
-                if (result.success) {
-                    alert('Produto atualizado com sucesso!');
+        try {
+            const response = await fetch('../../api/toggle_produto.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    produto_id: produtoId,
+                    ativo: novoStatus
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.showToast(`Produto ${novoStatus ? 'ativado' : 'desativado'} com sucesso!`, 'success');
+                setTimeout(() => {
                     location.reload();
-                }
-            } catch (error) {
-                console.error('Erro:', error);
-                alert('Erro ao atualizar produto');
+                }, 1500);
+            } else {
+                throw new Error(result.message || 'Erro ao atualizar produto');
             }
+        } catch (error) {
+            console.error('Erro:', error);
+            this.showToast('Erro: ' + error.message, 'error');
+            button.innerHTML = originalContent;
+            button.disabled = false;
         }
     }
 
+    // Função para filtrar produtos (similar ao listagens.php)
     filtrarProdutos() {
-        const filtroNome = document.getElementById('filtro-produto').value.toLowerCase();
-        const filtroCategoria = document.getElementById('filtro-categoria').value;
-
-        const linhas = document.querySelectorAll('#tabela-produtos tbody tr');
-
-        linhas.forEach(linha => {
-            const nome = linha.cells[0].textContent.toLowerCase();
-            const categoria = linha.cells[1].textContent;
-            const categoriaId = linha.cells[1].getAttribute('data-categoria-id') || '';
-
-            const matchNome = nome.includes(filtroNome);
-            const matchCategoria = !filtroCategoria || categoriaId === filtroCategoria;
-
-            linha.style.display = matchNome && matchCategoria ? '' : 'none';
+        const categoria = document.getElementById('filtro-categoria').value;
+        const status = document.getElementById('filtro-status').value;
+        const searchTerm = document.getElementById('filtro-produto').value.toLowerCase();
+        
+        document.querySelectorAll('.item-row:not(.item-header)').forEach(row => {
+            const rowCategoria = row.getAttribute('data-categoria');
+            const rowStatus = row.getAttribute('data-status');
+            const rowSearch = row.getAttribute('data-search').toLowerCase();
+            
+            const categoriaMatch = categoria === 'all' || rowCategoria === categoria;
+            const statusMatch = status === 'all' || rowStatus === status;
+            const searchMatch = rowSearch.includes(searchTerm);
+            
+            if (categoriaMatch && statusMatch && searchMatch) {
+                row.style.display = 'grid';
+            } else {
+                row.style.display = 'none';
+            }
         });
+        
+        // Mostrar/ocultar cards baseado no filtro de categoria
+        document.querySelectorAll('.card[id$="-card"]').forEach(card => {
+            const cardId = card.id;
+            const cardCategoria = cardId.replace('categoria-', '').replace('-card', '');
+            
+            if (categoria === 'all' || cardCategoria === categoria) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+
+    // Função para mostrar mensagens toast
+    showToast(message, type) {
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.classList.add('show');
+        }, 100);
+        
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => {
+                toast.remove();
+            }, 300);
+        }, 3000);
     }
 
     carregarDados() {
@@ -200,8 +275,12 @@ function fecharModalEntrada() {
     estoque.fecharModalEntrada();
 }
 
-function abrirModalProduto() {
-    estoque.abrirModalProduto();
+function abrirModalProduto(produtoId = null) {
+    if (produtoId) {
+        estoque.abrirModalProduto(produtoId);
+    } else {
+        estoque.abrirModalProduto();
+    }
 }
 
 function fecharModalProduto() {
@@ -212,8 +291,8 @@ function editarProduto(produtoId) {
     estoque.abrirModalProduto(produtoId);
 }
 
-function toggleProduto(produtoId, novoStatus) {
-    estoque.toggleProduto(produtoId, novoStatus);
+function toggleProduto(produtoId, novoStatus, button) {
+    estoque.toggleProduto(produtoId, novoStatus, button);
 }
 
 function filtrarProdutos() {
