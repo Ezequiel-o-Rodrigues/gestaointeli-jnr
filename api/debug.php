@@ -1,11 +1,13 @@
 <?php
-// api/debug.php
+// api/debug.php - ✅ CORRIGIDO
+require_once __DIR__ . '/../config/paths.php';
+
 echo "=== DEBUG API ===\n";
 echo "PHP está funcionando: SIM\n";
 echo "Diretório atual: " . __DIR__ . "\n";
 
 // Testar conexão com database.php
-$database_path = __DIR__ . '/../../config/database.php';
+$database_path = PathConfig::includes('database.php');
 echo "Caminho do database: " . $database_path . "\n";
 echo "Database existe: " . (file_exists($database_path) ? 'SIM' : 'NÃO') . "\n";
 

@@ -1,48 +1,59 @@
 <?php
-echo "=== PROCURANDO DATABASE.PHP ===\n";
+echo "=== PROCURANDO DATABASE.PHP ===<br><br>";
 
-$paths = [
-    __DIR__ . '/../../config/database.php',
-    __DIR__ . '/../../../config/database.php', 
-    __DIR__ . '/../../../../config/database.php',
-    __DIR__ . '/../config/database.php',
+$locations = [
     __DIR__ . '/config/database.php',
-    'C:/xampp/htdocs/config/database.php'
+    __DIR__ . '/includes/database.php', 
+    __DIR__ . '/database.php',
+    __DIR__ . '/../config/database.php',
+    'C:/xampp/htdocs/gestaointeli-jnr/config/database.php'
 ];
 
-foreach ($paths as $path) {
-    echo "Verificando: $path -> ";
-    if (file_exists($path)) {
-        echo "ENCONTRADO!\n";
+foreach ($locations as $location) {
+    echo "Verificando: <strong>$location</strong> → ";
+    if (file_exists($location)) {
+        echo "<span style='color: green;'>✅ ENCONTRADO!</span><br>";
+        
         // Testar se funciona
         try {
-            require_once $path;
-            $database = new Database();
-            $db = $database->getConnection();
-            echo "✅ Conexão funcionou!\n";
+            require_once $location;
+            if (class_exists('Database')) {
+                $database = new Database();
+                $db = $database->getConnection();
+                echo "&nbsp;&nbsp;📊 <span style='color: green;'>Classe Database funciona!</span><br>";
+            } else {
+                echo "&nbsp;&nbsp;❌ <span style='color: red;'>Classe Database NÃO existe</span><br>";
+            }
         } catch (Exception $e) {
-            echo "❌ Erro na conexão: " . $e->getMessage() . "\n";
+            echo "&nbsp;&nbsp;❌ <span style='color: red;'>Erro: " . $e->getMessage() . "</span><br>";
         }
-        break;
     } else {
-        echo "Não encontrado\n";
+        echo "<span style='color: red;'>❌ Não encontrado</span><br>";
     }
+    echo "<br>";
 }
 
-// Listar diretórios
-echo "\n=== ESTRUTURA DE DIRETÓRIOS ===\n";
-function listDir($dir, $level = 0) {
+echo "=== ESTRUTURA DO PROJETO ===<br>";
+function listDirectory($dir, $level = 0) {
     if (!is_dir($dir)) return;
+    
     $items = scandir($dir);
     foreach ($items as $item) {
         if ($item == '.' || $item == '..') continue;
+        
         $path = $dir . '/' . $item;
-        echo str_repeat('  ', $level) . $item . "\n";
-        if (is_dir($path) && $level < 3) {
-            listDir($path, $level + 1);
+        $indent = str_repeat('&nbsp;&nbsp;', $level);
+        
+        if (is_dir($path)) {
+            echo "$indent📁 $item/<br>";
+            if ($level < 3) { // Limita a profundidade
+                listDirectory($path, $level + 1);
+            }
+        } else {
+            echo "$indent📄 $item<br>";
         }
     }
 }
 
-listDir('C:/xampp/htdocs/gestaointeli-jnr');
+listDirectory(__DIR__);
 ?>

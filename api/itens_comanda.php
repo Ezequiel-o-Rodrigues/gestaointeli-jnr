@@ -1,6 +1,8 @@
 <?php
-// CORRIGIR CAMINHO
-require_once __DIR__ . '/../config/database.php';
+// ✅ CORRIGIDO
+require_once __DIR__ . '/../config/paths.php';
+require_once PathConfig::config('database.php');
+
 header('Content-Type: application/json; charset=utf-8');
 
 if (!isset($_GET['comanda_id'])) {

@@ -1,4 +1,8 @@
 <?php
+// ✅ CORRIGIDO
+require_once __DIR__ . '/../config/paths.php';
+require_once PathConfig::config('database.php'); 
+
 function formatarMoeda($valor) {
     return 'R$ ' . number_format($valor, 2, ',', '.');
 }

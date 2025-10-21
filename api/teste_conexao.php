@@ -1,5 +1,7 @@
 <?php
-require_once __DIR__ . '/../config/database.php';
+// ✅ CORRIGIDO
+require_once __DIR__ . '/../config/paths.php';
+require_once PathConfig::includes('database.php');
 
 header('Content-Type: application/json; charset=utf-8');
 $database = new Database();
@@ -8,7 +10,6 @@ $conn = $database->getConnection();
 if ($conn) {
     echo "Conexão bem-sucedida!<br>";
     
-
     // Verificar qual banco estamos usando
     $stmt = $conn->query("SELECT DATABASE() as current_db");
     $db = $stmt->fetch(PDO::FETCH_ASSOC);

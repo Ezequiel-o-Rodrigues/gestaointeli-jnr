@@ -1,8 +1,40 @@
 <?php
-require_once '../../config/database.php';
-require_once '../../includes/functions.php';
-require_once '../../includes/header.php';
+require_once __DIR__ . '/../../config/paths.php';
+require_once PathConfig::config('database.php');
 
+?>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Estoque</title>
+    <link rel="stylesheet" href="<?= PathConfig::assets('css/bootstrap.min.css') ?>">
+    <link rel="stylesheet" href="<?= PathConfig::modules('estoque/css/estoque.css') ?>">
+    <script src="<?= PathConfig::url('js/path-config.js') ?>"></script>
+</head>
+<body>
+    <?php include PathConfig::includes('header.php'); ?>
+    
+    <div class="container mt-4">
+        <h2>Gestão de Estoque</h2>
+        
+        <div class="row">
+            <div class="col-md-12">
+                <div id="estoque-container">
+                    <!-- Conteúdo será carregado via JavaScript -->
+                    <p>Carregando estoque...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="<?= PathConfig::assets('js/bootstrap.bundle.min.js') ?>"></script>
+    <script src="<?= PathConfig::modules('estoque/js/estoque.js') ?>"></script>
+</body>
+</html>
+
+<?php
 $database = new Database();
 $db = $database->getConnection();
 
@@ -289,7 +321,6 @@ $todas_categorias = getCategorias();
 <!-- Toast para mensagens -->
 <div id="toast-container"></div>
 
-<script src="estoque.js"></script>
 <style>
 /* Reset e Variáveis */
 :root {
@@ -908,4 +939,4 @@ content: "➕";
 }
 </style>
 
-<?php require_once '../../includes/footer.php'; ?>
+<?php require_once PathConfig::includes('footer.php'); ?>

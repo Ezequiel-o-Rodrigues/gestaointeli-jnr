@@ -23,8 +23,8 @@ class Estoque {
     }
 
     abrirModalEntrada(produtoId) {
-        // Buscar dados do produto
-        fetch(`../../api/produto_info.php?id=${produtoId}`)
+        // Buscar dados do produto - ✅ CORRIGIDO
+        fetch(PathConfig.api(`produto_info.php?id=${produtoId}`))
             .then(response => response.json())
             .then(produto => {
                 document.getElementById('produto_id_entrada').value = produto.id;
@@ -75,7 +75,8 @@ class Estoque {
         btn.disabled = true;
 
         try {
-            const response = await fetch('../../api/registrar_entrada.php', {
+            // ✅ CORRIGIDO
+            const response = await fetch(PathConfig.api('registrar_entrada.php'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -119,7 +120,8 @@ class Estoque {
         btn.disabled = true;
 
         try {
-            const response = await fetch('../../api/salvar_produto.php', {
+            // ✅ CORRIGIDO
+            const response = await fetch(PathConfig.api('salvar_produto.php'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -149,7 +151,8 @@ class Estoque {
 
     async carregarDadosProduto(produtoId) {
         try {
-            const response = await fetch(`../../api/produto_info.php?id=${produtoId}`);
+            // ✅ CORRIGIDO
+            const response = await fetch(PathConfig.api(`produto_info.php?id=${produtoId}`));
             const produto = await response.json();
 
             document.getElementById('produto_id').value = produto.id;
@@ -175,7 +178,8 @@ class Estoque {
         button.disabled = true;
 
         try {
-            const response = await fetch('../../api/toggle_produto.php', {
+            // ✅ CORRIGIDO
+            const response = await fetch(PathConfig.api('toggle_produto.php'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

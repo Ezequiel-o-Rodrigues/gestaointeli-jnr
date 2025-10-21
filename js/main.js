@@ -2,18 +2,16 @@
 class SistemaRestaurante {
     constructor() {
         this.comandaAtual = null;
-        this.baseUrl = '/gestaointeli-jnr';
         this.init();
     }
 
-
     init() {
-       // this.carregarComandaAberta();
         this.configurarEventListeners();
     }
 
     carregarComandaAberta() {
-            fetch('../api/comanda_aberta.php')
+        // ✅ CORRIGIDO
+        fetch(PathConfig.api('comanda_aberta.php'))
             .then(response => {
                 if (!response.ok) {
                     throw new Error('API não encontrada');
