@@ -24,14 +24,14 @@ $top_produtos = $stmt_top_produtos->fetchAll(PDO::FETCH_ASSOC);
     
     <div class="dashboard-cards">
         <div class="dashboard-card">
-            <h3>Vendas Hoje</h3>
-            <div class="numero"><?= $dashboard['vendas_hoje'] ?? 0 ?></div>
+            <h3>Vendas dessa semana</h3>
+            <div class="numero"><?= $dashboard['vendas_semana'] ?? 0 ?></div>
             <p>Comandas fechadas</p>
         </div>
         
         <div class="dashboard-card">
-            <h3>Faturamento Hoje</h3>
-            <div class="numero"><?= formatarMoeda($dashboard['faturamento_hoje'] ?? 0) ?></div>
+            <h3>Faturamento dessa semana</h3>
+            <div class="numero"><?= formatarMoeda($dashboard['faturamento_semana'] ?? 0) ?></div>
             <p>Valor total vendido</p>
         </div>
         

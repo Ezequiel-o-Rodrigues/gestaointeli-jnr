@@ -1,314 +1,272 @@
 class Estoque {
     constructor() {
-        this.init();
+        // Não inicializar aqui - vamos esperar o DOM carregar
     }
 
     init() {
         this.configurarEventListeners();
-        this.carregarDados();
     }
 
     configurarEventListeners() {
-        // Formulário de entrada
-        document.getElementById('form-entrada').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.registrarEntrada();
-        });
-
-        // Formulário de produto
-        document.getElementById('form-produto').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.salvarProduto();
-        });
-    }
-
-    abrirModalEntrada(produtoId) {
-        // Buscar dados do produto - ✅ CORRIGIDO
-        fetch(PathConfig.api(`produto_info.php?id=${produtoId}`))
-            .then(response => response.json())
-            .then(produto => {
-                document.getElementById('produto_id_entrada').value = produto.id;
-                document.getElementById('nome-produto-entrada').textContent = produto.nome;
-                document.getElementById('modal-entrada').style.display = 'block';
-            })
-            .catch(error => {
-                console.error('Erro:', error);
-                this.showToast('Erro ao carregar dados do produto', 'error');
-            });
-    }
-
-    fecharModalEntrada() {
-        document.getElementById('modal-entrada').style.display = 'none';
-        document.getElementById('form-entrada').reset();
-    }
-
-    abrirModalProduto(produtoId = null) {
-        const modal = document.getElementById('modal-produto');
-        const titulo = document.getElementById('titulo-modal-produto');
+        // Configurar eventos apenas se os elementos existirem
+        const formEntrada = document.getElementById('formEntrada');
+        const formProduto = document.getElementById('formProduto');
         
-        if (produtoId) {
-            titulo.textContent = 'Editar Produto';
-            this.carregarDadosProduto(produtoId);
-        } else {
-            titulo.textContent = 'Novo Produto';
-            document.getElementById('form-produto').reset();
+        if (formEntrada) {
+            formEntrada.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.registrarEntrada(this.getFormDataEntrada());
+            });
         }
         
-        modal.style.display = 'block';
+        if (formProduto) {
+            formProduto.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.salvarProduto(this.getFormDataProduto());
+            });
+        }
     }
 
-    fecharModalProduto() {
-        document.getElementById('modal-produto').style.display = 'none';
-    }
-
-    async registrarEntrada() {
-        const formData = {
+    getFormDataEntrada() {
+        return {
             produto_id: document.getElementById('produto_id_entrada').value,
-            quantidade: document.getElementById('quantidade_entrada').value,
-            fornecedor_id: document.getElementById('fornecedor_entrada').value || null,
-            observacao: document.getElementById('observacao_entrada').value
+            quantidade: document.getElementById('quantidadeEntrada').value,
+            fornecedor_id: document.getElementById('fornecedorEntrada').value || null,
+            observacao: document.getElementById('observacaoEntrada').value
         };
+    }
 
-        const btn = document.querySelector('#form-entrada button[type="submit"]');
-        const originalContent = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Registrando...';
-        btn.disabled = true;
+    getFormDataProduto() {
+        return {
+            id: document.getElementById('produtoId').value || null,
+            nome: document.getElementById('nomeProduto').value,
+            categoria_id: document.getElementById('categoriaProduto').value,
+            preco: document.getElementById('precoProduto').value,
+            estoque_minimo: document.getElementById('estoqueMinimoProduto').value,
+            estoque_inicial: document.getElementById('estoqueInicialProduto').value || 0
+        };
+    }
 
+    async abrirModalEntrada(produtoId) {
         try {
-            // ✅ CORRIGIDO
-            const response = await fetch(PathConfig.api('registrar_entrada.php'), {
+            const response = await fetch(`api/produto_info.php?id=${produtoId}`);
+            const produto = await response.json();
+            
+            document.getElementById('produto_id_entrada').value = produto.id;
+            document.getElementById('nome-produto-entrada').textContent = produto.nome;
+            
+            const modal = new bootstrap.Modal(document.getElementById('modalEntrada'));
+            modal.show();
+        } catch (error) {
+            this.mostrarToast('Erro ao carregar produto', 'error');
+            console.error('Erro:', error);
+        }
+    }
+
+    async registrarEntrada(formData) {
+        const btn = document.querySelector('#formEntrada button[type="submit"]');
+        const originalText = btn.innerHTML;
+        
+        try {
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando...';
+            btn.disabled = true;
+
+            const response = await fetch('api/registrar_entrada.php', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
             });
-
+            
             const result = await response.json();
-
+            
             if (result.success) {
-                this.showToast('Entrada registrada com sucesso!', 'success');
-                this.fecharModalEntrada();
-                setTimeout(() => {
-                    location.reload(); // Recarregar para atualizar dados
-                }, 1500);
+                this.mostrarToast('Entrada registrada com sucesso!', 'success');
+                const modal = bootstrap.Modal.getInstance(document.getElementById('modalEntrada'));
+                modal.hide();
+                setTimeout(() => location.reload(), 1500);
             } else {
                 throw new Error(result.message || 'Erro ao registrar entrada');
             }
         } catch (error) {
+            this.mostrarToast('Erro: ' + error.message, 'error');
             console.error('Erro:', error);
-            this.showToast('Erro: ' + error.message, 'error');
         } finally {
-            btn.innerHTML = originalContent;
+            btn.innerHTML = originalText;
             btn.disabled = false;
         }
     }
 
-    async salvarProduto() {
-        const formData = {
-            id: document.getElementById('produto_id').value || null,
-            nome: document.getElementById('nome_produto').value,
-            categoria_id: document.getElementById('categoria_produto').value,
-            preco: document.getElementById('preco_produto').value,
-            estoque_minimo: document.getElementById('estoque_minimo_produto').value,
-            estoque_inicial: document.getElementById('estoque_inicial_produto').value || 0
-        };
-
-        const btn = document.querySelector('#form-produto button[type="submit"]');
-        const originalContent = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Salvando...';
-        btn.disabled = true;
-
+    async salvarProduto(formData) {
+        const btn = document.querySelector('#formProduto button[type="submit"]');
+        const originalText = btn.innerHTML;
+        
         try {
-            // ✅ CORRIGIDO
-            const response = await fetch(PathConfig.api('salvar_produto.php'), {
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+            btn.disabled = true;
+
+            const response = await fetch('api/salvar_produto.php', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
             });
-
+            
             const result = await response.json();
-
+            
             if (result.success) {
-                this.showToast('Produto salvo com sucesso!', 'success');
-                this.fecharModalProduto();
-                setTimeout(() => {
-                    location.reload();
-                }, 1500);
+                this.mostrarToast('Produto salvo com sucesso!', 'success');
+                const modal = bootstrap.Modal.getInstance(document.getElementById('modalProduto'));
+                modal.hide();
+                setTimeout(() => location.reload(), 1500);
             } else {
                 throw new Error(result.message || 'Erro ao salvar produto');
             }
         } catch (error) {
+            this.mostrarToast('Erro: ' + error.message, 'error');
             console.error('Erro:', error);
-            this.showToast('Erro: ' + error.message, 'error');
         } finally {
-            btn.innerHTML = originalContent;
+            btn.innerHTML = originalText;
             btn.disabled = false;
         }
     }
 
-    async carregarDadosProduto(produtoId) {
-        try {
-            // ✅ CORRIGIDO
-            const response = await fetch(PathConfig.api(`produto_info.php?id=${produtoId}`));
-            const produto = await response.json();
-
-            document.getElementById('produto_id').value = produto.id;
-            document.getElementById('nome_produto').value = produto.nome;
-            document.getElementById('categoria_produto').value = produto.categoria_id;
-            document.getElementById('preco_produto').value = produto.preco;
-            document.getElementById('estoque_minimo_produto').value = produto.estoque_minimo;
-        } catch (error) {
-            console.error('Erro:', error);
-            this.showToast('Erro ao carregar dados do produto', 'error');
-        }
-    }
-
     async toggleProduto(produtoId, novoStatus, button) {
-        const confirmMessage = novoStatus ? 
-            'Deseja ativar este produto?' : 
-            'Deseja desativar este produto?';
-            
-        if (!confirm(confirmMessage)) return;
+        if (!confirm(`Deseja ${novoStatus ? 'ativar' : 'desativar'} este produto?`)) return;
 
-        const originalContent = button.innerHTML;
-        button.innerHTML = '<i class="fas fa-spinner fa-pulse"></i>';
+        const originalHTML = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
         button.disabled = true;
 
         try {
-            // ✅ CORRIGIDO
-            const response = await fetch(PathConfig.api('toggle_produto.php'), {
+            const response = await fetch('api/toggle_produto.php', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    produto_id: produtoId,
-                    ativo: novoStatus
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    produto_id: produtoId, 
+                    ativo: novoStatus 
                 })
             });
-
+            
             const result = await response.json();
-
+            
             if (result.success) {
-                this.showToast(`Produto ${novoStatus ? 'ativado' : 'desativado'} com sucesso!`, 'success');
-                setTimeout(() => {
-                    location.reload();
-                }, 1500);
+                this.mostrarToast(`Produto ${novoStatus ? 'ativado' : 'desativado'} com sucesso!`, 'success');
+                setTimeout(() => location.reload(), 1500);
             } else {
                 throw new Error(result.message || 'Erro ao atualizar produto');
             }
         } catch (error) {
-            console.error('Erro:', error);
-            this.showToast('Erro: ' + error.message, 'error');
-            button.innerHTML = originalContent;
+            this.mostrarToast('Erro: ' + error.message, 'error');
+            button.innerHTML = originalHTML;
             button.disabled = false;
         }
     }
 
-    // Função para filtrar produtos (similar ao listagens.php)
-    filtrarProdutos() {
-        const categoria = document.getElementById('filtro-categoria').value;
-        const status = document.getElementById('filtro-status').value;
-        const searchTerm = document.getElementById('filtro-produto').value.toLowerCase();
+    abrirModalProduto(produtoId = null) {
+        if (produtoId) {
+            this.editarProduto(produtoId);
+        } else {
+            document.getElementById('formProduto').reset();
+            document.getElementById('produtoId').value = '';
+            document.getElementById('modalProdutoLabel').textContent = 'Novo Produto';
+            
+            const modal = new bootstrap.Modal(document.getElementById('modalProduto'));
+            modal.show();
+        }
+    }
+
+    async editarProduto(produtoId) {
+        try {
+            const response = await fetch(`api/produto_info.php?id=${produtoId}`);
+            const produto = await response.json();
+            
+            document.getElementById('produtoId').value = produto.id;
+            document.getElementById('nomeProduto').value = produto.nome;
+            document.getElementById('categoriaProduto').value = produto.categoria_id;
+            document.getElementById('precoProduto').value = produto.preco;
+            document.getElementById('estoqueMinimoProduto').value = produto.estoque_minimo;
+            
+            document.getElementById('modalProdutoLabel').textContent = 'Editar Produto';
+            
+            const modal = new bootstrap.Modal(document.getElementById('modalProduto'));
+            modal.show();
+        } catch (error) {
+            this.mostrarToast('Erro ao carregar dados do produto', 'error');
+            console.error('Erro:', error);
+        }
+    }
+
+    mostrarToast(mensagem, tipo = 'info') {
+        // Criar toast do Bootstrap
+        const toastContainer = document.getElementById('toastContainer') || this.criarToastContainer();
         
-        document.querySelectorAll('.item-row:not(.item-header)').forEach(row => {
-            const rowCategoria = row.getAttribute('data-categoria');
-            const rowStatus = row.getAttribute('data-status');
-            const rowSearch = row.getAttribute('data-search').toLowerCase();
-            
-            const categoriaMatch = categoria === 'all' || rowCategoria === categoria;
-            const statusMatch = status === 'all' || rowStatus === status;
-            const searchMatch = rowSearch.includes(searchTerm);
-            
-            if (categoriaMatch && statusMatch && searchMatch) {
-                row.style.display = 'grid';
-            } else {
-                row.style.display = 'none';
-            }
-        });
+        const toastEl = document.createElement('div');
+        toastEl.className = `toast align-items-center text-bg-${tipo === 'error' ? 'danger' : tipo} border-0`;
+        toastEl.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="fas fa-${this.getToastIcon(tipo)} me-2"></i>
+                    ${mensagem}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
         
-        // Mostrar/ocultar cards baseado no filtro de categoria
-        document.querySelectorAll('.card[id$="-card"]').forEach(card => {
-            const cardId = card.id;
-            const cardCategoria = cardId.replace('categoria-', '').replace('-card', '');
-            
-            if (categoria === 'all' || cardCategoria === categoria) {
-                card.style.display = 'block';
-            } else {
-                card.style.display = 'none';
-            }
+        toastContainer.appendChild(toastEl);
+        const toast = new bootstrap.Toast(toastEl);
+        toast.show();
+        
+        // Remover após esconder
+        toastEl.addEventListener('hidden.bs.toast', () => {
+            toastEl.remove();
         });
     }
 
-    // Função para mostrar mensagens toast
-    showToast(message, type) {
-        const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
-        toast.textContent = message;
-        document.body.appendChild(toast);
-        
-        setTimeout(() => {
-            toast.classList.add('show');
-        }, 100);
-        
-        setTimeout(() => {
-            toast.classList.remove('show');
-            setTimeout(() => {
-                toast.remove();
-            }, 300);
-        }, 3000);
+    criarToastContainer() {
+        const container = document.createElement('div');
+        container.id = 'toastContainer';
+        container.className = 'toast-container position-fixed top-0 end-0 p-3';
+        document.body.appendChild(container);
+        return container;
     }
 
-    carregarDados() {
-        // Implementar carregamento adicional de dados se necessário
+    getToastIcon(tipo) {
+        const icons = {
+            success: 'check-circle',
+            error: 'exclamation-triangle',
+            warning: 'exclamation-triangle',
+            info: 'info-circle'
+        };
+        return icons[tipo] || 'info-circle';
     }
 }
 
-// Inicializar estoque
-const estoque = new Estoque();
+// Inicialização quando o DOM estiver carregado
+document.addEventListener('DOMContentLoaded', function() {
+    window.estoque = new Estoque();
+    window.estoque.init();
+});
 
-// Funções globais
+// Funções globais para os botões HTML
 function abrirModalEntrada(produtoId) {
-    estoque.abrirModalEntrada(produtoId);
-}
-
-function fecharModalEntrada() {
-    estoque.fecharModalEntrada();
+    if (window.estoque) {
+        window.estoque.abrirModalEntrada(produtoId);
+    }
 }
 
 function abrirModalProduto(produtoId = null) {
-    if (produtoId) {
-        estoque.abrirModalProduto(produtoId);
-    } else {
-        estoque.abrirModalProduto();
+    if (window.estoque) {
+        window.estoque.abrirModalProduto(produtoId);
     }
 }
 
-function fecharModalProduto() {
-    estoque.fecharModalProduto();
-}
-
 function editarProduto(produtoId) {
-    estoque.abrirModalProduto(produtoId);
+    if (window.estoque) {
+        window.estoque.editarProduto(produtoId);
+    }
 }
 
 function toggleProduto(produtoId, novoStatus, button) {
-    estoque.toggleProduto(produtoId, novoStatus, button);
-}
-
-function filtrarProdutos() {
-    estoque.filtrarProdutos();
-}
-
-// Fechar modal ao clicar fora
-window.onclick = function(event) {
-    const modals = document.getElementsByClassName('modal');
-    for (let modal of modals) {
-        if (event.target === modal) {
-            modal.style.display = 'none';
-        }
+    if (window.estoque) {
+        window.estoque.toggleProduto(produtoId, novoStatus, button);
     }
 }
