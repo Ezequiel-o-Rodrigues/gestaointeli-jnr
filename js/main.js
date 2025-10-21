@@ -2,9 +2,10 @@
 class SistemaRestaurante {
     constructor() {
         this.comandaAtual = null;
-        this.baseUrl = window.location.origin + '/gestaointeli-jnr/'; // URL absoluta
+        this.baseUrl = '/gestaointeli-jnr';
         this.init();
     }
+
 
     init() {
        // this.carregarComandaAberta();
@@ -12,8 +13,7 @@ class SistemaRestaurante {
     }
 
     carregarComandaAberta() {
-        // URL ABSOLUTA para a API
-        fetch(this.baseUrl + 'api/comanda_aberta.php')
+            fetch('../api/comanda_aberta.php')
             .then(response => {
                 if (!response.ok) {
                     throw new Error('API não encontrada');
