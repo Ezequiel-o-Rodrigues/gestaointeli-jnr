@@ -99,21 +99,12 @@ class Relatorios {
 
     async carregarVendasUltimos7Dias() {
         try {
-            const dataInicio = new Date();
-            dataInicio.setDate(dataInicio.getDate() - 7);
-            
-            const response = await fetch(`../../api/relatorio_vendas_periodo.php?tipo=diario&data_inicio=${dataInicio.toISOString().split('T')[0]}&data_fim=${new Date().toISOString().split('T')[0]}`);
+            const response = await fetch('../../api/relatorio_vendas_7dias.php');
             const dados = await response.json();
 
             if (dados.success && this.graficoVendas) {
-                const labels = dados.data.map(item => {
-                    const data = new Date(item.data_venda);
-                    return data.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' });
-                });
-                const valores = dados.data.map(item => parseFloat(item.valor_total_vendas));
-
-                this.graficoVendas.data.labels = labels;
-                this.graficoVendas.data.datasets[0].data = valores;
+                this.graficoVendas.data.labels = dados.labels;
+                this.graficoVendas.data.datasets[0].data = dados.valores;
                 this.graficoVendas.update();
             }
         } catch (error) {
@@ -123,24 +114,12 @@ class Relatorios {
 
     async carregarTopCategorias() {
         try {
-            const response = await fetch('../../api/relatorio_produtos_vendidos.php?limit=8');
+            const response = await fetch('../../api/relatorio_top_categorias.php');
             const dados = await response.json();
 
             if (dados.success && this.graficoCategorias) {
-                // Agrupar por categoria
-                const categorias = {};
-                dados.data.forEach(produto => {
-                    if (!categorias[produto.categoria]) {
-                        categorias[produto.categoria] = 0;
-                    }
-                    categorias[produto.categoria] += parseFloat(produto.valor_total_vendido);
-                });
-
-                const labels = Object.keys(categorias);
-                const valores = Object.values(categorias);
-
-                this.graficoCategorias.data.labels = labels;
-                this.graficoCategorias.data.datasets[0].data = valores;
+                this.graficoCategorias.data.labels = dados.labels;
+                this.graficoCategorias.data.datasets[0].data = dados.valores;
                 this.graficoCategorias.update();
             }
         } catch (error) {
@@ -180,7 +159,7 @@ class Relatorios {
         const container = document.getElementById('alertas-perda-container');
         if (!container) return;
 
-        if (alertas.length === 0) {
+        if (!alertas || alertas.length === 0) {
             container.innerHTML = '<div class="alerta-item sucesso">✅ Nenhuma perda de estoque identificada</div>';
             return;
         }
@@ -227,21 +206,28 @@ class Relatorios {
             }
 
             const response = await fetch(url);
-            const dados = await response.json();
+            const resultado = await response.json();
 
-            if (dados.success) {
-                this.exibirResultados(dados.data, tipoRelatorio);
+            if (resultado.success) {
+                // Garantir que estamos passando um array
+                const dados = Array.isArray(resultado.data) ? resultado.data : [];
+                this.exibirResultados(dados, tipoRelatorio);
             } else {
-                alert('Erro ao gerar relatório: ' + dados.message);
+                alert('Erro ao gerar relatório: ' + resultado.message);
             }
         } catch (error) {
             console.error('Erro ao gerar relatório:', error);
-            alert('Erro ao gerar relatório');
+            alert('Erro ao gerar relatório: ' + error.message);
         }
     }
 
     exibirResultados(dados, tipo) {
         const container = document.querySelector('.resultados-relatorio');
+        
+        // Garantir que dados é um array
+        if (!Array.isArray(dados)) {
+            dados = [];
+        }
         
         switch(tipo) {
             case 'vendas':
@@ -257,7 +243,7 @@ class Relatorios {
     }
 
     criarTabelaVendas(dados) {
-        if (dados.length === 0) {
+        if (!Array.isArray(dados) || dados.length === 0) {
             return '<div class="sem-dados">Nenhuma venda encontrada no período selecionado</div>';
         }
 
@@ -270,16 +256,16 @@ class Relatorios {
 
         dados.forEach(item => {
             html += `<tr>
-                    <td>${item.data_venda || item.periodo || item.mes_ano}</td>
-                    <td>${item.total_comandas}</td>
-                    <td>${this.formatarMoeda(item.valor_total_vendas)}</td>
+                    <td>${item.data || item.data_venda || item.periodo || item.mes_ano || 'N/A'}</td>
+                    <td>${item.total_comandas || 0}</td>
+                    <td>${this.formatarMoeda(item.valor_total || item.valor_total_vendas)}</td>
                     <td>${this.formatarMoeda(item.total_gorjetas)}</td>
                     <td>${this.formatarMoeda(item.ticket_medio)}</td>
                     </tr>`;
         });
 
-        const totalVendas = dados.reduce((sum, item) => sum + parseFloat(item.valor_total_vendas), 0);
-        const totalComandas = dados.reduce((sum, item) => sum + parseInt(item.total_comandas), 0);
+        const totalVendas = dados.reduce((sum, item) => sum + parseFloat(item.valor_total || item.valor_total_vendas || 0), 0);
+        const totalComandas = dados.reduce((sum, item) => sum + parseInt(item.total_comandas || 0), 0);
 
         html += `<tr class="total-row">
                 <td><strong>Total</strong></td>
@@ -292,7 +278,7 @@ class Relatorios {
     }
 
     criarTabelaProdutos(dados) {
-        if (dados.length === 0) {
+        if (!Array.isArray(dados) || dados.length === 0) {
             return '<div class="sem-dados">Nenhum produto vendido no período selecionado</div>';
         }
 
@@ -305,10 +291,10 @@ class Relatorios {
 
         dados.forEach(item => {
             html += `<tr>
-                    <td>${item.nome}</td>
-                    <td>${item.categoria}</td>
-                    <td>${item.total_vendido}</td>
-                    <td>${this.formatarMoeda(item.valor_total_vendido)}</td>
+                    <td>${item.nome || 'N/A'}</td>
+                    <td>${item.categoria || 'N/A'}</td>
+                    <td>${item.total_vendido || item.quantidade || 0}</td>
+                    <td>${this.formatarMoeda(item.valor_total_vendido || item.valor_total)}</td>
                     <td>${item.total_comandas || '-'}</td>
                     </tr>`;
         });
@@ -318,7 +304,7 @@ class Relatorios {
     }
 
     criarTabelaEstoque(dados) {
-        if (dados.length === 0) {
+        if (!Array.isArray(dados) || dados.length === 0) {
             return '<div class="sem-dados">✅ Nenhum alerta de perda de estoque</div>';
         }
 
@@ -331,12 +317,12 @@ class Relatorios {
 
         dados.forEach(item => {
             html += `<tr>
-                    <td>${item.nome}</td>
-                    <td>${item.categoria}</td>
-                    <td class="destaque-perda">${item.diferenca_estoque}</td>
-                    <td>${item.total_entradas}</td>
-                    <td>${item.total_vendido}</td>
-                    <td>${item.estoque_atual}</td>
+                    <td>${item.nome || item.nome_produto || 'N/A'}</td>
+                    <td>${item.categoria || 'N/A'}</td>
+                    <td class="destaque-perda">${item.diferenca_estoque || 0}</td>
+                    <td>${item.total_entradas || 0}</td>
+                    <td>${item.total_vendido || 0}</td>
+                    <td>${item.estoque_atual || 0}</td>
                     </tr>`;
         });
 
@@ -345,14 +331,14 @@ class Relatorios {
     }
 
     formatarMoeda(valor) {
+        const numero = parseFloat(valor) || 0;
         return new Intl.NumberFormat('pt-BR', {
             style: 'currency',
             currency: 'BRL'
-        }).format(valor || 0);
+        }).format(numero);
     }
 
     exportarRelatorio() {
-        // Implementação básica - pode ser expandida para PDF/Excel
         const tabela = document.querySelector('.resultados-relatorio table');
         if (!tabela) {
             alert('Gere um relatório primeiro para exportar');
