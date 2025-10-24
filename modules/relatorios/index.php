@@ -6,58 +6,86 @@ require_once '../../includes/header.php';
 $database = new Database();
 $db = $database->getConnection();
 
-// Dados para o dashboard - usando view aprimorada se existir, senão usa a básica
+// Calcular datas da semana
+$inicio_semana = date('Y-m-d', strtotime('monday this week'));
+$fim_semana = date('Y-m-d');
+
+// Dados para o dashboard - foco na semana
 try {
-    $query_dashboard = "SHOW TABLES LIKE 'view_dashboard_aprimorado'";
-    $stmt_check = $db->prepare($query_dashboard);
-    $stmt_check->execute();
+    // Vendas da semana
+    $query_semana = "SELECT 
+        COUNT(*) as vendas_semana,
+        COALESCE(SUM(valor_total), 0) as faturamento_semana,
+        COALESCE(AVG(valor_total), 0) as ticket_medio_semana
+        FROM comandas 
+        WHERE status = 'fechada' 
+        AND DATE(data_venda) BETWEEN :inicio_semana AND :fim_semana";
     
-    if ($stmt_check->rowCount() > 0) {
-        $query_dashboard = "SELECT * FROM view_dashboard_aprimorado";
-    } else {
-        $query_dashboard = "SELECT * FROM view_dashboard";
-    }
+    $stmt_semana = $db->prepare($query_semana);
+    $stmt_semana->bindParam(':inicio_semana', $inicio_semana);
+    $stmt_semana->bindParam(':fim_semana', $fim_semana);
+    $stmt_semana->execute();
+    $dashboard_semana = $stmt_semana->fetch(PDO::FETCH_ASSOC);
     
-    $stmt_dashboard = $db->prepare($query_dashboard);
-    $stmt_dashboard->execute();
-    $dashboard = $stmt_dashboard->fetch(PDO::FETCH_ASSOC);
+    // Alertas de estoque
+    $query_estoque = "SELECT COUNT(*) as alertas_estoque FROM produtos WHERE estoque_atual <= estoque_minimo AND ativo = 1";
+    $stmt_estoque = $db->prepare($query_estoque);
+    $stmt_estoque->execute();
+    $alertas_estoque = $stmt_estoque->fetch(PDO::FETCH_ASSOC);
+    
+    // Produtos com perdas (últimos 30 dias)
+    $query_perdas = "SELECT COUNT(*) as total_perdas FROM (
+        SELECT p.id
+        FROM produtos p
+        WHERE p.ativo = 1
+        AND (
+            (SELECT COALESCE(SUM(me.quantidade), 0) FROM movimentacoes_estoque me WHERE me.produto_id = p.id AND me.tipo = 'entrada' AND me.data_movimentacao >= DATE_SUB(NOW(), INTERVAL 30 DAY)) -
+            (SELECT COALESCE(SUM(ic.quantidade), 0) FROM itens_comanda ic JOIN comandas c ON ic.comanda_id = c.id WHERE ic.produto_id = p.id AND c.status = 'fechada' AND c.data_venda >= DATE_SUB(NOW(), INTERVAL 30 DAY)) -
+            p.estoque_atual
+        ) > 0
+    ) as perdas";
+    
+    $stmt_perdas = $db->prepare($query_perdas);
+    $stmt_perdas->execute();
+    $total_perdas = $stmt_perdas->fetch(PDO::FETCH_ASSOC);
+    
+    $dashboard = array_merge($dashboard_semana, $alertas_estoque, $total_perdas);
     
 } catch (Exception $e) {
-    // Fallback para dados básicos
     $dashboard = [
-        'vendas_hoje' => 0,
-        'faturamento_hoje' => 0,
+        'vendas_semana' => 0,
+        'faturamento_semana' => 0,
+        'ticket_medio_semana' => 0,
         'alertas_estoque' => 0,
-        'ticket_medio' => 0
+        'total_perdas' => 0
     ];
 }
 
-// Produtos mais vendidos
+// Produtos mais vendidos (da semana)
 try {
-    $query_top_produtos = "SELECT * FROM view_produtos_mais_vendidos LIMIT 10";
+    $query_top_produtos = "
+        SELECT 
+            p.nome,
+            cat.nome as categoria,
+            SUM(ic.quantidade) as total_vendido,
+            SUM(ic.subtotal) as valor_total_vendido
+        FROM itens_comanda ic
+        JOIN produtos p ON ic.produto_id = p.id
+        JOIN categorias cat ON p.categoria_id = cat.id
+        JOIN comandas c ON ic.comanda_id = c.id
+        WHERE c.status = 'fechada'
+        AND DATE(c.data_venda) BETWEEN :inicio_semana AND :fim_semana
+        GROUP BY p.id
+        ORDER BY total_vendido DESC
+        LIMIT 10";
+    
     $stmt_top_produtos = $db->prepare($query_top_produtos);
+    $stmt_top_produtos->bindParam(':inicio_semana', $inicio_semana);
+    $stmt_top_produtos->bindParam(':fim_semana', $fim_semana);
     $stmt_top_produtos->execute();
     $top_produtos = $stmt_top_produtos->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
     $top_produtos = [];
-}
-
-// Alertas de perda
-try {
-    $query_alertas = "SHOW TABLES LIKE 'view_alertas_perda_estoque'";
-    $stmt_check_alerta = $db->prepare($query_alertas);
-    $stmt_check_alerta->execute();
-    
-    if ($stmt_check_alerta->rowCount() > 0) {
-        $query_alertas = "SELECT COUNT(*) as total FROM view_alertas_perda_estoque WHERE diferenca_estoque > 0";
-        $stmt_alertas = $db->prepare($query_alertas);
-        $stmt_alertas->execute();
-        $total_alertas = $stmt_alertas->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
-    } else {
-        $total_alertas = 0;
-    }
-} catch (Exception $e) {
-    $total_alertas = 0;
 }
 ?>
 
@@ -66,15 +94,15 @@ try {
     
     <div class="dashboard-cards">
         <div class="dashboard-card">
-            <h3>Vendas Hoje</h3>
-            <div class="numero"><?= $dashboard['vendas_hoje'] ?? 0 ?></div>
-            <p>Comandas fechadas hoje</p>
+            <h3>Vendas dessa semana</h3>
+            <div class="numero"><?= $dashboard['vendas_semana'] ?? 0 ?></div>
+            <p>Comandas fechadas</p>
         </div>
         
         <div class="dashboard-card">
-            <h3>Faturamento Hoje</h3>
-            <div class="numero"><?= formatarMoeda($dashboard['faturamento_hoje'] ?? 0) ?></div>
-            <p>Valor vendido hoje</p>
+            <h3>Faturamento dessa semana</h3>
+            <div class="numero"><?= formatarMoeda($dashboard['faturamento_semana'] ?? 0) ?></div>
+            <p>Valor total vendido</p>
         </div>
         
         <div class="dashboard-card <?= ($dashboard['alertas_estoque'] ?? 0) > 0 ? 'alerta' : '' ?>">
@@ -85,18 +113,18 @@ try {
             <p>Produtos com estoque baixo</p>
         </div>
         
-        <div class="dashboard-card <?= $total_alertas > 0 ? 'alerta' : '' ?>">
+        <div class="dashboard-card <?= ($dashboard['total_perdas'] ?? 0) > 0 ? 'alerta' : '' ?>">
             <h3>Perdas Identificadas</h3>
-            <div class="numero <?= $total_alertas > 0 ? 'alerta' : '' ?>">
-                <?= $total_alertas ?>
+            <div class="numero <?= ($dashboard['total_perdas'] ?? 0) > 0 ? 'alerta' : '' ?>">
+                <?= $dashboard['total_perdas'] ?? 0 ?>
             </div>
-            <p>Diferenças no estoque</p>
+            <p>Produtos com divergência</p>
         </div>
     </div>
 
     <!-- Seção de Alertas de Perda -->
     <div id="alertas-perda-container" class="alertas-section">
-        <div class="alerta-item sucesso">Carregando alertas...</div>
+        <div class="alerta-item sucesso">Carregando análise de estoque...</div>
     </div>
 
     <div class="relatorios-section">
@@ -105,7 +133,7 @@ try {
             <div class="filtros-grid">
                 <div class="filtro-group">
                     <label>Data Início:</label>
-                    <input type="date" id="data-inicio" class="form-input" value="<?= date('Y-m-d', strtotime('-7 days')) ?>">
+                    <input type="date" id="data-inicio" class="form-input" value="<?= date('Y-m-01') ?>">
                 </div>
                 <div class="filtro-group">
                     <label>Data Fim:</label>
@@ -116,7 +144,7 @@ try {
                     <select id="tipo-relatorio" class="form-select">
                         <option value="vendas">Vendas por Período</option>
                         <option value="produtos">Produtos Mais Vendidos</option>
-                        <option value="estoque">Movimentação de Estoque</option>
+                        <option value="analise_estoque">🔍 Análise de Estoque e Perdas</option>
                     </select>
                 </div>
                 <div class="filtro-group">
@@ -127,7 +155,7 @@ try {
         </div>
 
         <div class="resultados-relatorio">
-            <h3>Produtos Mais Vendidos (Top 10)</h3>
+            <h3>Produtos Mais Vendidos da Semana (Top 10)</h3>
             <?php if (count($top_produtos) > 0): ?>
             <div class="table-responsive">
                 <table class="table">
@@ -152,7 +180,7 @@ try {
                 </table>
             </div>
             <?php else: ?>
-            <div class="sem-dados">Nenhum dado disponível</div>
+            <div class="sem-dados">Nenhuma venda registrada nesta semana</div>
             <?php endif; ?>
         </div>
 
@@ -164,10 +192,6 @@ try {
             <div class="grafico-card">
                 <h4>Top Categorias</h4>
                 <canvas id="grafico-categorias"></canvas>
-            </div>
-            <div class="grafico-card">
-                <h4>Vendas Mensais</h4>
-                <canvas id="grafico-mensal"></canvas>
             </div>
         </div>
     </div>
@@ -274,6 +298,21 @@ try {
     font-style: italic;
     background: #f8f9fa;
     border-radius: 5px;
+}
+
+.analise-estoque-table th {
+    background: #f8f9fa;
+    position: sticky;
+    top: 0;
+}
+
+.perda-destaque {
+    background: #fff5f5 !important;
+    font-weight: bold;
+}
+
+.sem-perda {
+    background: #f0fff4 !important;
 }
 </style>
 

@@ -29,4 +29,24 @@ function getProdutosPorCategoria($categoria_id) {
     
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
+
+// Adicionar esta função ao includes/functions.php se não existir
+function getProdutosAtivos($db, $categoria_id = null) {
+    $query = "SELECT p.*, c.nome as categoria_nome FROM produtos p 
+              JOIN categorias c ON p.categoria_id = c.id 
+              WHERE p.ativo = 1";
+    
+    if ($categoria_id) {
+        $query .= " AND p.categoria_id = :categoria_id";
+    }
+    
+    $query .= " ORDER BY p.nome";
+    
+    $stmt = $db->prepare($query);
+    if ($categoria_id) {
+        $stmt->bindParam(':categoria_id', $categoria_id);
+    }
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 ?>

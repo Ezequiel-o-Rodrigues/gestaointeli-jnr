@@ -182,66 +182,71 @@ class Relatorios {
     }
 
     async gerarRelatorio() {
-        const dataInicio = document.getElementById('data-inicio').value;
-        const dataFim = document.getElementById('data-fim').value;
-        const tipoRelatorio = document.getElementById('tipo-relatorio').value;
+    const dataInicio = document.getElementById('data-inicio').value;
+    const dataFim = document.getElementById('data-fim').value;
+    const tipoRelatorio = document.getElementById('tipo-relatorio').value;
 
-        if (!dataInicio || !dataFim) {
-            alert('Selecione as datas de início e fim');
-            return;
-        }
-
-        try {
-            let url = '';
-            switch(tipoRelatorio) {
-                case 'vendas':
-                    url = `../../api/relatorio_vendas_periodo.php?data_inicio=${dataInicio}&data_fim=${dataFim}&tipo=diario`;
-                    break;
-                case 'produtos':
-                    url = `../../api/relatorio_produtos_vendidos.php?data_inicio=${dataInicio}&data_fim=${dataFim}`;
-                    break;
-                case 'estoque':
-                    url = `../../api/relatorio_alertas_perda.php`;
-                    break;
-            }
-
-            const response = await fetch(url);
-            const resultado = await response.json();
-
-            if (resultado.success) {
-                // Garantir que estamos passando um array
-                const dados = Array.isArray(resultado.data) ? resultado.data : [];
-                this.exibirResultados(dados, tipoRelatorio);
-            } else {
-                alert('Erro ao gerar relatório: ' + resultado.message);
-            }
-        } catch (error) {
-            console.error('Erro ao gerar relatório:', error);
-            alert('Erro ao gerar relatório: ' + error.message);
-        }
+    if (!dataInicio || !dataFim) {
+        alert('Selecione as datas de início e fim');
+        return;
     }
 
-    exibirResultados(dados, tipo) {
-        const container = document.querySelector('.resultados-relatorio');
-        
-        // Garantir que dados é um array
-        if (!Array.isArray(dados)) {
-            dados = [];
-        }
-        
-        switch(tipo) {
+    try {
+        let url = '';
+        let params = `?data_inicio=${dataInicio}&data_fim=${dataFim}`;
+
+        switch(tipoRelatorio) {
             case 'vendas':
-                container.innerHTML = this.criarTabelaVendas(dados);
+                url = '../../api/relatorio_vendas_periodo.php';
+                params += '&tipo=diario';
                 break;
             case 'produtos':
-                container.innerHTML = this.criarTabelaProdutos(dados);
+                url = '../../api/relatorio_produtos_vendidos.php';
                 break;
-            case 'estoque':
-                container.innerHTML = this.criarTabelaEstoque(dados);
+            case 'analise_estoque':
+                url = '../../api/relatorio_analise_estoque.php';
                 break;
         }
+
+        console.log('URL da requisição:', url + params);
+
+        const response = await fetch(url + params);
+        const resultado = await response.json();
+
+        console.log('Resultado da API:', resultado);
+
+        if (resultado.success) {
+            let dadosArray = Array.isArray(resultado.data) ? resultado.data : [];
+            this.exibirResultados(dadosArray, tipoRelatorio, resultado.totais, resultado.periodo);
+        } else {
+            alert('Erro ao gerar relatório: ' + (resultado.message || 'Erro desconhecido'));
+        }
+    } catch (error) {
+        console.error('Erro completo ao gerar relatório:', error);
+        alert('Erro ao gerar relatório: ' + error.message);
+    }
+}
+
+    exibirResultados(dados, tipo, totais = {}, periodo = {}) {
+    const container = document.querySelector('.resultados-relatorio');
+    
+    let html = '';
+    switch(tipo) {
+        case 'vendas':
+            html = this.criarTabelaVendas(dados);
+            break;
+        case 'produtos':
+            html = this.criarTabelaProdutos(dados);
+            break;
+        case 'analise_estoque':
+            html = this.criarTabelaAnaliseEstoque(dados, totais, periodo);
+            break;
+        default:
+            html = '<div class="sem-dados">Tipo de relatório não reconhecido</div>';
     }
 
+    container.innerHTML = html;
+}
     criarTabelaVendas(dados) {
         if (!Array.isArray(dados) || dados.length === 0) {
             return '<div class="sem-dados">Nenhuma venda encontrada no período selecionado</div>';
@@ -276,6 +281,85 @@ class Relatorios {
         html += `</tbody></table></div>`;
         return html;
     }
+
+    criarTabelaAnaliseEstoque(dados, totais, periodo) {
+    if (!Array.isArray(dados) || dados.length === 0) {
+        return '<div class="sem-dados">Nenhum dado encontrado para análise de estoque no período selecionado</div>';
+    }
+
+    const { data_inicio, data_fim } = periodo;
+
+    let html = `<h3>🔍 Análise de Estoque e Perdas</h3>
+               <div class="periodo-info">
+                   <strong>Período:</strong> ${this.formatarData(data_inicio)} à ${this.formatarData(data_fim)}
+               </div>
+               <div class="totais-analise">
+                   <div class="total-item">
+                       <span class="total-label">Produtos com Perdas:</span>
+                       <span class="total-value ${totais.total_produtos_com_perda > 0 ? 'alerta' : ''}">${totais.total_produtos_com_perda}</span>
+                   </div>
+                   <div class="total-item">
+                       <span class="total-label">Quantidade Perdida:</span>
+                       <span class="total-value ${totais.total_perdas_quantidade > 0 ? 'alerta' : ''}">${totais.total_perdas_quantidade} unidades</span>
+                   </div>
+                   <div class="total-item">
+                       <span class="total-label">Valor das Perdas:</span>
+                       <span class="total-value ${totais.total_perdas_valor > 0 ? 'alerta' : ''}">${this.formatarMoeda(totais.total_perdas_valor)}</span>
+                   </div>
+                   <div class="total-item">
+                       <span class="total-label">Faturamento Total:</span>
+                       <span class="total-value">${this.formatarMoeda(totais.total_faturamento)}</span>
+                   </div>
+               </div>
+               <div class="table-responsive">
+               <table class="table analise-estoque-table">
+               <thead>
+               <tr>
+                   <th>Produto</th>
+                   <th>Categoria</th>
+                   <th>Estoque Inicial</th>
+                   <th>+ Entradas</th>
+                   <th>- Vendidos</th>
+                   <th>= Estoque Teórico</th>
+                   <th>Estoque Real</th>
+                   <th>Perdas (Qtd)</th>
+                   <th>Perdas (R$)</th>
+                   <th>Faturamento</th>
+               </tr>
+               </thead><tbody>`;
+
+    dados.forEach(item => {
+        const temPerda = item.perdas_quantidade > 0;
+        const classeLinha = temPerda ? 'perda-destaque' : 'sem-perda';
+        
+        html += `<tr class="${classeLinha}">
+                <td><strong>${item.nome}</strong></td>
+                <td>${item.categoria}</td>
+                <td>${item.estoque_inicial}</td>
+                <td>${item.entradas_periodo}</td>
+                <td>${item.vendidas_periodo}</td>
+                <td><strong>${item.estoque_teorico_final}</strong></td>
+                <td>${item.estoque_real_atual}</td>
+                <td class="${temPerda ? 'destaque-perda' : ''}">${item.perdas_quantidade}</td>
+                <td class="${temPerda ? 'destaque-perda' : ''}">${this.formatarMoeda(item.perdas_valor)}</td>
+                <td>${this.formatarMoeda(item.faturamento_periodo)}</td>
+                </tr>`;
+    });
+
+    html += `</tbody></table></div>
+            <div class="legenda-analise">
+                <div class="legenda-item">
+                    <div class="legenda-cor perda-destaque"></div>
+                    <span>Produto com perdas identificadas</span>
+                </div>
+                <div class="legenda-item">
+                    <div class="legenda-cor sem-perda"></div>
+                    <span>Sem perdas no período</span>
+                </div>
+            </div>`;
+    
+    return html;
+}
 
     criarTabelaProdutos(dados) {
         if (!Array.isArray(dados) || dados.length === 0) {
@@ -354,10 +438,116 @@ class Relatorios {
         a.click();
         URL.revokeObjectURL(url);
     }
+    
+    formatarData(data) {
+    return new Date(data + 'T00:00:00').toLocaleDateString('pt-BR');
 }
+}
+
+
 
 // Inicializar relatórios
 const relatorios = new Relatorios();
+
+// CSS adicional para a análise de estoque
+const style = document.createElement('style');
+style.textContent = `
+.periodo-info {
+    background: #e3f2fd;
+    padding: 10px 15px;
+    border-radius: 5px;
+    margin-bottom: 15px;
+    border-left: 4px solid #2196f3;
+}
+
+.totais-analise {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.total-item {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    border-left: 4px solid #4caf50;
+}
+
+.total-item .total-label {
+    display: block;
+    font-size: 0.9em;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.total-item .total-value {
+    display: block;
+    font-size: 1.4em;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.total-item .total-value.alerta {
+    color: #e74c3c;
+}
+
+.analise-estoque-table {
+    font-size: 0.9em;
+}
+
+.analise-estoque-table th {
+    background: #34495e;
+    color: white;
+    position: sticky;
+    top: 0;
+}
+
+.perda-destaque {
+    background: #fff5f5 !important;
+    font-weight: bold;
+}
+
+.sem-perda {
+    background: #f0fff4 !important;
+}
+
+.destaque-perda {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+.legenda-analise {
+    display: flex;
+    gap: 20px;
+    margin-top: 15px;
+    justify-content: center;
+}
+
+.legenda-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.legenda-cor {
+    width: 20px;
+    height: 20px;
+    border-radius: 3px;
+}
+
+.legenda-cor.perda-destaque {
+    background: #fff5f5;
+    border: 2px solid #f8d7da;
+}
+
+.legenda-cor.sem-perda {
+    background: #f0fff4;
+    border: 2px solid #d1f7d1;
+}
+`;
+document.head.appendChild(style);
 
 // Funções globais para os botões HTML
 function gerarRelatorio() {

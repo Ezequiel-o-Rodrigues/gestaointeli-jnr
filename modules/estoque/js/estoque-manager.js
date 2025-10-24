@@ -405,6 +405,38 @@ class EstoqueManager {
             alert('ℹ️ ' + message);
         }
     }
+
+       // NOVA FUNÇÃO: Abrir modal de inventário para produto específico
+    showInventoryModal(productId = null) {
+        if (productId) {
+            // Preencher automaticamente o produto no modal de inventário
+            const produtoSelect = document.getElementById('produto_id');
+            if (produtoSelect) {
+                produtoSelect.value = productId;
+                this.triggerEvent(produtoSelect, 'change');
+            }
+        }
+        
+        const modalElement = document.getElementById('inventarioModal');
+        if (modalElement) {
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+        }
+    }
+
+    // Função utilitária para trigger de eventos
+    triggerEvent(element, eventName) {
+        const event = new Event(eventName, { bubbles: true });
+        element.dispatchEvent(event);
+    }
+
+}
+
+// Adicionar função global para inventário
+function abrirModalInventarioProduto(produtoId) {
+    if (window.estoqueManager) {
+        window.estoqueManager.showInventoryModal(produtoId);
+    }
 }
 
 // Instância global
