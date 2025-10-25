@@ -12,6 +12,64 @@ class Relatorios {
         this.carregarAlertasPerda();
     }
 
+    async carregarMetricasPerdas() {
+        try {
+            const response = await fetch('../../api/relatorio_metricas_perdas.php');
+            const dados = await response.json();
+
+            if (dados.success) {
+                this.atualizarDashboardMetricas(dados.metricas, dados.top_perdas);
+            }
+        } catch (error) {
+            console.error('Erro ao carregar métricas de perdas:', error);
+        }
+    }
+
+        atualizarDashboardMetricas(metricas, topPerdas) {
+        // Atualizar cards de métricas
+        if (document.getElementById('total-produtos-analisados')) {
+            document.getElementById('total-produtos-analisados').textContent = 
+                metricas.total_produtos_analisados || 0;
+            document.getElementById('produtos-com-perda').textContent = 
+                metricas.produtos_com_perda || 0;
+            document.getElementById('unidades-perdidas').textContent = 
+                metricas.total_unidades_perdidas || 0;
+            document.getElementById('valor-perdido').textContent = 
+                this.formatarMoeda(metricas.total_valor_perdido || 0);
+            document.getElementById('percentual-perda').textContent = 
+                (metricas.percentual_perda_faturamento || 0).toFixed(2) + '%';
+        }
+
+        // Atualizar lista de top perdas
+        this.atualizarTopPerdas(topPerdas);
+    }
+
+     atualizarTopPerdas(topPerdas) {
+        const container = document.getElementById('top-perdas-list');
+        if (!container) return;
+
+        if (!topPerdas || topPerdas.length === 0) {
+            container.innerHTML = '<div class="carregando">✅ Nenhuma perda significativa identificada</div>';
+            return;
+        }
+
+        let html = '';
+        topPerdas.forEach(produto => {
+            html += `
+                <div class="perda-item">
+                    <div>
+                        <div class="perda-produto">${produto.nome}</div>
+                        <div class="perda-categoria">${produto.categoria}</div>
+                    </div>
+                    <div class="perda-valor">
+                        ${this.formatarMoeda(produto.perdas_valor || 0)}
+                    </div>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    }
+
     inicializarGraficos() {
         const ctxVendas = document.getElementById('grafico-vendas');
         const ctxCategorias = document.getElementById('grafico-categorias');
@@ -205,6 +263,14 @@ class Relatorios {
                 break;
             case 'analise_estoque':
                 url = '../../api/relatorio_analise_estoque.php';
+                const categoria = document.getElementById('filtro-categoria')?.value;
+                const valorMinimo = document.getElementById('filtro-valor-minimo')?.value;
+                const tipoFiltro = document.getElementById('filtro-tipo')?.value;
+                
+                if (categoria) params += `&categoria_id=${categoria}`;
+                if (valorMinimo) params += `&valor_minimo=${valorMinimo}`;
+                if (tipoFiltro) params += `&tipo_filtro=${tipoFiltro}`;
+            
                 break;
         }
 
@@ -231,6 +297,9 @@ class Relatorios {
     const container = document.querySelector('.resultados-relatorio');
     
     let html = '';
+      if (tipo === 'analise_estoque') {
+        html += this.criarFiltrosAvancados();
+    }
     switch(tipo) {
         case 'vendas':
             html = this.criarTabelaVendas(dados);
@@ -414,6 +483,45 @@ class Relatorios {
         return html;
     }
 
+     criarFiltrosAvancados() {
+        return `
+            <div class="filtros-avancados">
+                <h4>🎯 Filtros Avançados para Análise de Estoque</h4>
+                <div class="filtros-grid-avancado">
+                    <div class="filtro-group">
+                        <label>Categoria:</label>
+                        <select id="filtro-categoria" class="form-select">
+                            <option value="">Todas as Categorias</option>
+                            <option value="1">Espetos</option>
+                            <option value="2">Porções</option>
+                            <option value="3">Bebidas</option>
+                            <option value="4">Cervejas</option>
+                            <option value="5">Diversos</option>
+                        </select>
+                    </div>
+                    <div class="filtro-group">
+                        <label>Valor Mínimo de Perda:</label>
+                        <input type="number" id="filtro-valor-minimo" class="form-input" 
+                               placeholder="R$ 0,00" step="0.01" min="0">
+                    </div>
+                    <div class="filtro-group">
+                        <label>Mostrar Apenas:</label>
+                        <select id="filtro-tipo" class="form-select">
+                            <option value="todos">Todos os Produtos</option>
+                            <option value="com_perda">Apenas com Perdas</option>
+                            <option value="sem_perda">Apenas sem Perdas</option>
+                        </select>
+                    </div>
+                    <div class="filtro-group">
+                        <button class="btn btn-secondary" onclick="aplicarFiltrosAvancados()">
+                            🔄 Aplicar Filtros
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
     formatarMoeda(valor) {
         const numero = parseFloat(valor) || 0;
         return new Intl.NumberFormat('pt-BR', {
@@ -443,8 +551,9 @@ class Relatorios {
     return new Date(data + 'T00:00:00').toLocaleDateString('pt-BR');
 }
 }
-
-
+function aplicarFiltrosAvancados() {
+    relatorios.gerarRelatorio();
+}
 
 // Inicializar relatórios
 const relatorios = new Relatorios();
@@ -545,6 +654,32 @@ style.textContent = `
 .legenda-cor.sem-perda {
     background: #f0fff4;
     border: 2px solid #d1f7d1;
+}
+
+.filtros-avancados {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 10px;
+    margin-bottom: 2rem;
+    border-left: 4px solid #3498db;
+}
+
+.filtros-grid-avancado {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    align-items: end;
+}
+
+.filtros-avancados .filtro-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.filtros-avancados label {
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    color: #2c3e50;
 }
 `;
 document.head.appendChild(style);
