@@ -1,3 +1,11 @@
+// Limpeza completa de estilos antigos
+document.querySelectorAll('style[data-relatorios]').forEach(style => style.remove());
+document.querySelectorAll('style').forEach(style => {
+    if (style.textContent.includes('analise-estoque') || 
+        style.textContent.includes('table-analise-estoque')) {
+        style.remove();
+    }
+});
 class Relatorios {
     constructor() {
         this.graficoVendas = null;
@@ -358,130 +366,181 @@ class Relatorios {
 
     const { data_inicio, data_fim } = periodo;
 
-    let html = `<h3>🔍 Análise de Estoque e Perdas</h3>
-               <div class="periodo-info">
-                   <strong>Período:</strong> ${this.formatarData(data_inicio)} à ${this.formatarData(data_fim)}
-               </div>
-               <div class="totais-analise">
-                   <div class="total-item">
-                       <span class="total-label">Produtos com Perdas:</span>
-                       <span class="total-value ${totais.total_produtos_com_perda > 0 ? 'alerta' : ''}">${totais.total_produtos_com_perda}</span>
-                   </div>
-                   <div class="total-item">
-                       <span class="total-label">Quantidade Perdida:</span>
-                       <span class="total-value ${totais.total_perdas_quantidade > 0 ? 'alerta' : ''}">${totais.total_perdas_quantidade} unidades</span>
-                   </div>
-                   <div class="total-item">
-                       <span class="total-label">Valor das Perdas:</span>
-                       <span class="total-value ${totais.total_perdas_valor > 0 ? 'alerta' : ''}">${this.formatarMoeda(totais.total_perdas_valor)}</span>
-                   </div>
-                   <div class="total-item">
-                       <span class="total-label">Faturamento Total:</span>
-                       <span class="total-value">${this.formatarMoeda(totais.total_faturamento)}</span>
-                   </div>
-               </div>
-               <div class="table-responsive">
-               <table class="table analise-estoque-table">
-               <thead>
-               <tr>
-                   <th>Produto</th>
-                   <th>Categoria</th>
-                   <th>Estoque Inicial</th>
-                   <th>+ Entradas</th>
-                   <th>- Vendidos</th>
-                   <th>= Estoque Teórico</th>
-                   <th>Estoque Real</th>
-                   <th>Perdas (Qtd)</th>
-                   <th>Perdas (R$)</th>
-                   <th>Faturamento</th>
-               </tr>
-               </thead><tbody>`;
+    let html = `
+        <div class="analise-estoque-container">
+            <div class="analise-header">
+                <h3><i class="bi bi-graph-up"></i> Análise de Estoque e Perdas</h3>
+                <div class="periodo-info">
+                    <strong>Período:</strong> ${this.formatarData(data_inicio)} à ${this.formatarData(data_fim)}
+                </div>
+            </div>
+
+            <div class="totais-analise">
+                <div class="total-item">
+                    <div class="total-icon">
+                        <i class="bi bi-box-seam"></i>
+                    </div>
+                    <div class="total-content">
+                        <div class="total-value ${totais.total_produtos_com_perda > 0 ? 'alerta' : ''}">
+                            ${totais.total_produtos_com_perda}
+                        </div>
+                        <div class="total-label">Produtos com Perdas</div>
+                    </div>
+                </div>
+                
+                <div class="total-item">
+                    <div class="total-icon">
+                        <i class="bi bi-arrow-down-circle"></i>
+                    </div>
+                    <div class="total-content">
+                        <div class="total-value ${totais.total_perdas_quantidade > 0 ? 'alerta' : ''}">
+                            ${totais.total_perdas_quantidade}
+                        </div>
+                        <div class="total-label">Unidades Perdidas</div>
+                    </div>
+                </div>
+                
+                <div class="total-item">
+                    <div class="total-icon">
+                        <i class="bi bi-currency-dollar"></i>
+                    </div>
+                    <div class="total-content">
+                        <div class="total-value ${totais.total_perdas_valor > 0 ? 'alerta' : ''}">
+                            ${this.formatarMoeda(totais.total_perdas_valor)}
+                        </div>
+                        <div class="total-label">Valor das Perdas</div>
+                    </div>
+                </div>
+                
+                <div class="total-item">
+                    <div class="total-icon">
+                        <i class="bi bi-cash-coin"></i>
+                    </div>
+                    <div class="total-content">
+                        <div class="total-value">
+                            ${this.formatarMoeda(totais.total_faturamento)}
+                        </div>
+                        <div class="total-label">Faturamento Total</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-analise-estoque">
+                    <thead class="analise-thead">
+                        <tr>
+                            <th class="produto-col">
+                                <i class="bi bi-tag"></i>
+                                <span class="header-text">Produto</span>
+                            </th>
+                            <th class="categoria-col">
+                                <i class="bi bi-grid"></i>
+                                <span class="header-text">Categoria</span>
+                            </th>
+                            <th class="numero-col">
+                                <i class="bi bi-box-arrow-in-down"></i>
+                                <span class="header-text">Estoque Inicial</span>
+                            </th>
+                            <th class="numero-col positivo">
+                                <i class="bi bi-plus-circle"></i>
+                                <span class="header-text">+ Entradas</span>
+                            </th>
+                            <th class="numero-col negativo">
+                                <i class="bi bi-dash-circle"></i>
+                                <span class="header-text">- Vendidos</span>
+                            </th>
+                            <th class="numero-col teorico">
+                                <i class="bi bi-calculator"></i>
+                                <span class="header-text">= Estoque Teórico</span>
+                            </th>
+                            <th class="numero-col real">
+                                <i class="bi bi-clipboard-check"></i>
+                                <span class="header-text">Estoque Real</span>
+                            </th>
+                            <th class="numero-col perda">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                <span class="header-text">Perdas (Qtd)</span>
+                            </th>
+                            <th class="numero-col perda">
+                                <i class="bi bi-currency-dollar"></i>
+                                <span class="header-text">Perdas (R$)</span>
+                            </th>
+                            <th class="numero-col">
+                                <i class="bi bi-graph-up"></i>
+                                <span class="header-text">Faturamento</span>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
 
     dados.forEach(item => {
         const temPerda = item.perdas_quantidade > 0;
-        const classeLinha = temPerda ? 'perda-destaque' : 'sem-perda';
+        const classeLinha = temPerda ? 'linha-com-perda' : 'linha-sem-perda';
+        const iconeStatus = temPerda ? 'bi-exclamation-triangle-fill' : 'bi-check-circle-fill';
+        const corStatus = temPerda ? 'status-perda' : 'status-ok';
         
-        html += `<tr class="${classeLinha}">
-                <td><strong>${item.nome}</strong></td>
-                <td>${item.categoria}</td>
-                <td>${item.estoque_inicial}</td>
-                <td>${item.entradas_periodo}</td>
-                <td>${item.vendidas_periodo}</td>
-                <td><strong>${item.estoque_teorico_final}</strong></td>
-                <td>${item.estoque_real_atual}</td>
-                <td class="${temPerda ? 'destaque-perda' : ''}">${item.perdas_quantidade}</td>
-                <td class="${temPerda ? 'destaque-perda' : ''}">${this.formatarMoeda(item.perdas_valor)}</td>
-                <td>${this.formatarMoeda(item.faturamento_periodo)}</td>
-                </tr>`;
+        html += `
+                        <tr class="${classeLinha}">
+                            <td class="produto-cell">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi ${iconeStatus} ${corStatus} me-2"></i>
+                                    <strong>${item.nome}</strong>
+                                </div>
+                            </td>
+                            <td class="categoria-cell">
+                                <span class="badge categoria-badge">${item.categoria}</span>
+                            </td>
+                            <td class="numero-cell">${item.estoque_inicial}</td>
+                            <td class="numero-cell positivo">${item.entradas_periodo}</td>
+                            <td class="numero-cell negativo">${item.vendidas_periodo}</td>
+                            <td class="numero-cell teorico">
+                                <strong>${item.estoque_teorico_final}</strong>
+                            </td>
+                            <td class="numero-cell real">${item.estoque_real_atual}</td>
+                            <td class="numero-cell ${temPerda ? 'destaque-perda' : ''}">
+                                ${item.perdas_quantidade}
+                            </td>
+                            <td class="numero-cell ${temPerda ? 'destaque-perda' : ''}">
+                                ${this.formatarMoeda(item.perdas_valor)}
+                            </td>
+                            <td class="numero-cell faturamento">
+                                ${this.formatarMoeda(item.faturamento_periodo)}
+                            </td>
+                        </tr>`;
     });
 
-    html += `</tbody></table></div>
-            <div class="legenda-analise">
-                <div class="legenda-item">
-                    <div class="legenda-cor perda-destaque"></div>
-                    <span>Produto com perdas identificadas</span>
+    html += `
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="analise-footer">
+                <div class="legenda-analise">
+                    <div class="legenda-item">
+                        <div class="legenda-cor perda"></div>
+                        <span>Produto com perdas identificadas</span>
+                    </div>
+                    <div class="legenda-item">
+                        <div class="legenda-cor sem-perda"></div>
+                        <span>Sem perdas no período</span>
+                    </div>
                 </div>
-                <div class="legenda-item">
-                    <div class="legenda-cor sem-perda"></div>
-                    <span>Sem perdas no período</span>
+                <div class="export-buttons">
+                    <button class="btn btn-sm btn-outline-primary" onclick="exportarParaExcel()">
+                        <i class="bi bi-file-earmark-excel"></i>
+                        Exportar Excel
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="imprimirRelatorio()">
+                        <i class="bi bi-printer"></i>
+                        Imprimir
+                    </button>
                 </div>
-            </div>`;
+            </div>
+        </div>`;
     
     return html;
 }
-
-    criarTabelaProdutos(dados) {
-        if (!Array.isArray(dados) || dados.length === 0) {
-            return '<div class="sem-dados">Nenhum produto vendido no período selecionado</div>';
-        }
-
-        let html = `<h3>🏆 Produtos Mais Vendidos</h3>
-                   <div class="table-responsive">
-                   <table class="table">
-                   <thead>
-                   <tr><th>Produto</th><th>Categoria</th><th>Quantidade</th><th>Valor Total</th><th>Comandas</th></tr>
-                   </thead><tbody>`;
-
-        dados.forEach(item => {
-            html += `<tr>
-                    <td>${item.nome || 'N/A'}</td>
-                    <td>${item.categoria || 'N/A'}</td>
-                    <td>${item.total_vendido || item.quantidade || 0}</td>
-                    <td>${this.formatarMoeda(item.valor_total_vendido || item.valor_total)}</td>
-                    <td>${item.total_comandas || '-'}</td>
-                    </tr>`;
-        });
-
-        html += `</tbody></table></div>`;
-        return html;
-    }
-
-    criarTabelaEstoque(dados) {
-        if (!Array.isArray(dados) || dados.length === 0) {
-            return '<div class="sem-dados">✅ Nenhum alerta de perda de estoque</div>';
-        }
-
-        let html = `<h3>🚨 Alertas de Perda de Estoque</h3>
-                   <div class="table-responsive">
-                   <table class="table">
-                   <thead>
-                   <tr><th>Produto</th><th>Categoria</th><th>Diferença</th><th>Entradas</th><th>Vendidos</th><th>Estoque Atual</th></tr>
-                   </thead><tbody>`;
-
-        dados.forEach(item => {
-            html += `<tr>
-                    <td>${item.nome || item.nome_produto || 'N/A'}</td>
-                    <td>${item.categoria || 'N/A'}</td>
-                    <td class="destaque-perda">${item.diferenca_estoque || 0}</td>
-                    <td>${item.total_entradas || 0}</td>
-                    <td>${item.total_vendido || 0}</td>
-                    <td>${item.estoque_atual || 0}</td>
-                    </tr>`;
-        });
-
-        html += `</tbody></table></div>`;
-        return html;
-    }
 
      criarFiltrosAvancados() {
         return `
@@ -558,129 +617,276 @@ function aplicarFiltrosAvancados() {
 // Inicializar relatórios
 const relatorios = new Relatorios();
 
-// CSS adicional para a análise de estoque
+// REMOVA qualquer style antigo
+const oldStyles = document.querySelectorAll('style[data-relatorios]');
+oldStyles.forEach(style => style.remove());
+
+// INJETE este novo CSS com alta prioridade
 const style = document.createElement('style');
+style.setAttribute('data-relatorios', 'true');
 style.textContent = `
-.periodo-info {
-    background: #e3f2fd;
-    padding: 10px 15px;
-    border-radius: 5px;
-    margin-bottom: 15px;
-    border-left: 4px solid #2196f3;
-}
+    /* CONTAINER PRINCIPAL */
+    .analise-estoque-container {
+        background: white !important;
+        border-radius: 12px !important;
+        box-shadow: 0 2px 20px rgba(0,0,0,0.1) !important;
+        overflow: hidden !important;
+        margin-bottom: 2rem !important;
+    }
 
-.totais-analise {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
-    margin-bottom: 20px;
-}
+    .analise-header {
+        background: linear-gradient(135deg, #2c3e50, #34495e) !important;
+        color: white !important;
+        padding: 1.5rem !important;
+        border-bottom: none !important;
+    }
 
-.total-item {
-    background: white;
-    padding: 15px;
-    border-radius: 8px;
-    text-align: center;
-    border-left: 4px solid #4caf50;
-}
+    .analise-header h3 {
+        margin: 0 !important;
+        font-weight: 600 !important;
+        color: white !important;
+    }
 
-.total-item .total-label {
-    display: block;
-    font-size: 0.9em;
-    color: #666;
-    margin-bottom: 5px;
-}
+    .periodo-info {
+        background: rgba(255,255,255,0.1) !important;
+        padding: 0.75rem 1rem !important;
+        border-radius: 6px !important;
+        margin-top: 0.5rem !important;
+        font-size: 0.9rem !important;
+        color: white !important;
+    }
 
-.total-item .total-value {
-    display: block;
-    font-size: 1.4em;
-    font-weight: bold;
-    color: #2c3e50;
-}
+    /* CARDS DE TOTAIS */
+    .totais-analise {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+        gap: 1rem !important;
+        padding: 1.5rem !important;
+        background: #f8f9fa !important;
+    }
 
-.total-item .total-value.alerta {
-    color: #e74c3c;
-}
+    .total-item {
+        background: white !important;
+        padding: 1.25rem !important;
+        border-radius: 10px !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 1rem !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+        border-left: 4px solid #3498db !important;
+    }
 
-.analise-estoque-table {
-    font-size: 0.9em;
-}
+    .total-item .total-icon {
+        font-size: 1.5rem !important;
+        color: #3498db !important;
+    }
 
-.analise-estoque-table th {
-    background: #34495e;
-    color: white;
-    position: sticky;
-    top: 0;
-}
+    .total-item .total-value {
+        font-size: 1.5rem !important;
+        font-weight: bold !important;
+        color: #2c3e50 !important;
+        line-height: 1.2 !important;
+    }
 
-.perda-destaque {
-    background: #fff5f5 !important;
-    font-weight: bold;
-}
+    .total-item .total-value.alerta {
+        color: #e74c3c !important;
+    }
 
-.sem-perda {
-    background: #f0fff4 !important;
-}
+    .total-item .total-label {
+        font-size: 0.85rem !important;
+        color: #7f8c8d !important;
+        margin-top: 0.25rem !important;
+    }
 
-.destaque-perda {
-    color: #e74c3c;
-    font-weight: bold;
-}
+    /* CABEÇALHOS DA TABELA - MAIS VISÍVEIS */
+    .table-analise-estoque {
+        margin: 0 !important;
+        font-size: 0.85rem !important;
+        width: 100% !important;
+        border-collapse: collapse !important;
+        background: white !important;
+    }
 
-.legenda-analise {
-    display: flex;
-    gap: 20px;
-    margin-top: 15px;
-    justify-content: center;
-}
+    .analise-thead th {
+        background: linear-gradient(135deg, #2c3e50, #34495e) !important;
+        color: white !important;
+        font-weight: 700 !important;
+        border-bottom: 3px solid #1a2530 !important;
+        padding: 1rem 0.75rem !important;
+        text-align: center !important;
+        vertical-align: middle !important;
+        white-space: nowrap !important;
+        font-size: 0.9rem !important;
+        text-transform: none !important;
+        letter-spacing: 0.5px !important;
+    }
 
-.legenda-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
+    .header-text {
+        font-weight: 700 !important;
+        color: white !important;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.3) !important;
+        margin-left: 5px !important;
+    }
 
-.legenda-cor {
-    width: 20px;
-    height: 20px;
-    border-radius: 3px;
-}
+    /* MELHOR CONTRASTE PARA OS ÍCONES */
+    .analise-thead th i {
+        color: #ecf0f1 !important;
+        margin-right: 5px !important;
+        font-size: 0.95rem !important;
+    }
 
-.legenda-cor.perda-destaque {
-    background: #fff5f5;
-    border: 2px solid #f8d7da;
-}
+    /* CORES DAS COLUNAS - MANTENDO CONTRASTE */
+    .positivo { 
+        background: rgba(39, 174, 96, 0.1) !important; 
+        border-left: 3px solid #27ae60 !important;
+    }
+    .negativo { 
+        background: rgba(231, 76, 60, 0.1) !important;
+        border-left: 3px solid #e74c3c !important;
+    }
+    .teorico { 
+        background: rgba(52, 152, 219, 0.1) !important;
+        border-left: 3px solid #3498db !important;
+        font-weight: bold !important; 
+    }
+    .real { 
+        background: rgba(44, 62, 80, 0.1) !important;
+        border-left: 3px solid #2c3e50 !important;
+    }
+    .perda { 
+        background: rgba(231, 76, 60, 0.15) !important;
+        border-left: 3px solid #e74c3c !important;
+    }
+    .faturamento { 
+        background: rgba(39, 174, 96, 0.1) !important;
+        border-left: 3px solid #27ae60 !important;
+    }
 
-.legenda-cor.sem-perda {
-    background: #f0fff4;
-    border: 2px solid #d1f7d1;
-}
+    /* CÉLULAS */
+    .table-analise-estoque td {
+        padding: 0.75rem !important;
+        vertical-align: middle !important;
+        text-align: center !important;
+        border-color: #e9ecef !important;
+        color: #2c3e50 !important;
+        background: inherit !important;
+        font-weight: 500 !important;
+    }
 
-.filtros-avancados {
-    background: #f8f9fa;
-    padding: 1.5rem;
-    border-radius: 10px;
-    margin-bottom: 2rem;
-    border-left: 4px solid #3498db;
-}
+    .produto-cell {
+        text-align: left !important;
+        font-weight: 600 !important;
+    }
 
-.filtros-grid-avancado {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-    align-items: end;
-}
+    .categoria-cell {
+        text-align: center !important;
+    }
 
-.filtros-avancados .filtro-group {
-    display: flex;
-    flex-direction: column;
-}
+    .numero-cell {
+        font-family: 'Courier New', monospace !important;
+        font-weight: 600 !important;
+        text-align: center !important;
+    }
 
-.filtros-avancados label {
-    font-weight: bold;
-    margin-bottom: 0.5rem;
-    color: #2c3e50;
-}
+    /* BADGES */
+    .categoria-badge {
+        background: #e3f2fd !important;
+        color: #1976d2 !important;
+        padding: 0.35rem 0.75rem !important;
+        border-radius: 20px !important;
+        font-size: 0.75rem !important;
+        font-weight: 500 !important;
+        border: none !important;
+    }
+
+    /* LINHAS COM DESTAQUE */
+    .linha-com-perda {
+        background: #fff5f5 !important;
+        border-left: 4px solid #e74c3c !important;
+    }
+
+    .linha-com-perda:hover {
+        background: #ffeaea !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 2px 8px rgba(231, 76, 60, 0.2) !important;
+    }
+
+    .linha-sem-perda {
+        background: #f8fff8 !important;
+        border-left: 4px solid #27ae60 !important;
+    }
+
+    .linha-sem-perda:hover {
+        background: #f0fff0 !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 2px 8px rgba(39, 174, 96, 0.2) !important;
+    }
+
+    .destaque-perda {
+        color: #e74c3c !important;
+        font-weight: bold !important;
+        background: #fff0f0 !important;
+        border-radius: 4px !important;
+        padding: 2px 6px !important;
+    }
+
+    /* FOOTER */
+    .analise-footer {
+        padding: 1.5rem !important;
+        background: #f8f9fa !important;
+        border-top: 1px solid #dee2e6 !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        flex-wrap: wrap !important;
+        gap: 1rem !important;
+    }
+
+    .legenda-analise {
+        display: flex !important;
+        gap: 1.5rem !important;
+        align-items: center !important;
+    }
+
+    .legenda-item {
+        display: flex !important;
+        align-items: center !important;
+        gap: 0.5rem !important;
+        font-size: 0.85rem !important;
+        color: #6c757d !important;
+    }
+
+    .legenda-cor {
+        width: 16px !important;
+        height: 16px !important;
+        border-radius: 3px !important;
+    }
+
+    .legenda-cor.perda {
+        background: #fff5f5 !important;
+        border: 2px solid #e74c3c !important;
+    }
+
+    .legenda-cor.sem-perda {
+        background: #f0fff4 !important;
+        border: 2px solid #27ae60 !important;
+    }
+
+    /* RESPONSIVIDADE */
+    @media (max-width: 1200px) {
+        .table-analise-estoque {
+            font-size: 0.8rem !important;
+        }
+        
+        .analise-thead th {
+            padding: 0.75rem 0.5rem !important;
+            font-size: 0.85rem !important;
+        }
+        
+        .header-text {
+            font-size: 0.85rem !important;
+        }
+    }
 `;
 document.head.appendChild(style);
 
