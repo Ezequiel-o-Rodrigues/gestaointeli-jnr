@@ -68,6 +68,11 @@ try {
     $total_comanda = '0,00';
     $categorias = [];
 }
+  // BUSCAR GARÇONS ATIVOS
+    $query_garcons = "SELECT id, nome, codigo FROM garcons WHERE ativo = 1 ORDER BY codigo";
+    $stmt_garcons = $db->prepare($query_garcons);
+    $stmt_garcons->execute();
+    $garcons = $stmt_garcons->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <!DOCTYPE html>
@@ -298,79 +303,149 @@ try {
             white-space: nowrap;
         }
 
-        /* PRODUTOS */
-        .produtos-scroll-container {
-            flex: 1;
-            overflow-y: auto;
-            padding: 8px;
-            height: 100%;
-        }
+       /* PRODUTOS - NOVO ESTILO COM CORES POR CATEGORIA */
+.produtos-scroll-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 5px;s
+    height: 100%;
+}
 
-        .categoria-produtos {
-            margin-bottom: 15px;
-        }
+/* Remove os títulos de categoria com fundo azul */
+.categoria-produtos {
+    margin-bottom: 8px;
+}
 
-        .categoria-titulo {
-            background: linear-gradient(135deg, #3498db, #2980b9);
-            color: white;
-            padding: 6px 10px;
-            border-radius: 4px;
-            margin-bottom: 8px;
-            font-size: 0.9rem;
-            font-weight: 600;
-        }
+.categoria-titulo {
+    display: none; /* Esconde os títulos azuis */
+}
 
-        .produtos-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-            gap: 6px;
-            margin-bottom: 8px;
-        }
+.produtos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 8px;
+    margin-bottom: 10px;
+}
 
-        .produto-card {
-            padding: 8px;
-            border: 1px solid #e0e0e0;
-            border-radius: 6px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s;
-            background: white;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            min-height: 80px;
-        }
+.produto-card {
+    padding: 8px;
+    border: 0.5px solid; /* Borda mais espessa para o efeito tabela periódica */
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.5s ease;
+    background: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 90px;
+    position: relative;
+    overflow: hidden;
+}
 
-        .produto-card:hover {
-            border-color: #3498db;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(52, 152, 219, 0.2);
-        }
+/* Efeito de brilho suave no hover */
+.produto-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    filter: brightness(1.05);
+}
 
-        .produto-nome {
-            font-weight: 600;
-            font-size: 0.75rem;
-            line-height: 1.2;
-            margin-bottom: 4px;
-            color: #2c3e50;
-        }
+/* Mini indicador de categoria no topo */
+.produto-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: currentColor;
+    opacity: 0.7;
+}
 
-        .produto-preco {
-            font-weight: bold;
-            color: #27ae60;
-            font-size: 0.8rem;
-            margin: 3px 0;
-        }
+.produto-nome {
+    font-weight: 600;
+    font-size: 0.75rem;
+    line-height: 1.2;
+    margin-bottom: 4px;
+    color: #000000ff;
+    z-index: 1;
+}
 
-        .produto-estoque {
-            font-size: 0.7rem;
-            color: #7f8c8d;
-        }
+.produto-preco {
+    font-weight: bold;
+    font-size: 0.8rem;
+    margin: 3px 0;
+    z-index: 1;
+}
 
-        .estoque-baixo {
-            color: #e74c3c;
-            font-weight: bold;
-        }
+.produto-estoque {
+    font-size: 0.7rem;
+    z-index: 1;
+    color: #007a1bff;
+}
+
+.estoque-baixo {
+    font-weight: bold;
+    color: #ff1900ff;
+}
+
+/* CORES POR CATEGORIA - Inspirado na Tabela Periódica */
+/* Alimenticio - Verde (como metais alcalinos) */
+.produto-card[data-produto-categoria="1"] {
+    border-color: #128040ff;
+    background: linear-gradient(135deg, #006e0062, #0e8b239c);
+    color: #27ae60;
+}
+
+.produto-card[data-produto-categoria="1"] .produto-preco {
+    color: #229954;
+}
+
+/* Bebidas não alcoólicas - Azul (como gases nobres) */
+.produto-card[data-produto-categoria="3"] {
+    border-color: #3498db;
+    background: linear-gradient(135deg, #023a8386, #abccf8ad);
+    color: #3498db;
+}
+
+.produto-card[data-produto-categoria="3"] .produto-preco {
+    color: #2980b9;
+}
+
+/* Bebidas alcoólicas - Vermelho/Laranja (como metais de transição) */
+.produto-card[data-produto-categoria="4"] {
+    border-color: #ff1900ff;
+    background: linear-gradient(135deg, #8a040485, #fadbd8);
+    color: #e74c3c;
+}
+
+.produto-card[data-produto-categoria="4"] .produto-preco {
+    color: #cb4335;
+}
+
+/* Diversos - Roxo (como lantanídeos) */
+.produto-card[data-produto-categoria="5"] {
+    border-color: #8e44ad;
+    background: linear-gradient(135deg, #faf8ff, #e8daef);
+    color: #8e44ad;
+}
+
+.produto-card[data-produto-categoria="5"] .produto-preco {
+    color: #7d3c98;
+}
+
+/* Estoque baixo - destaque adicional */
+.produto-card.estoque-baixo {
+    animation: pulse-alert 10s infinite;
+    border-width: 3px;
+}
+
+@keyframes pulse-alert {
+    0% { border-color: currentColor; }
+    50% { border-color: #e74c3c; }
+    100% { border-color: currentColor; }
+}
+
 
         /* SCROLL HORIZONTAL PARA COMANDA */
         .itens-comanda-horizontal::-webkit-scrollbar {
@@ -409,6 +484,32 @@ try {
             .produtos-grid {
                 grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
             }
+        }
+
+        .btn-garcom {
+            background: #f8f9fa;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 15px 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: inherit;
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .btn-garcom:hover {
+            background: #e3f2fd;
+            border-color: #3498db;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(52, 152, 219, 0.2);
+        }
+
+        .btn-garcom:active {
+            transform: translateY(0);
         }
     </style>
 </head>
@@ -458,52 +559,188 @@ try {
             <span id="contador-produtos" class="contador-produtos"></span>
         </div>
 
-        <div class="produtos-scroll-container" id="produtos-container">
-            <?php if (!empty($produtos_por_categoria)): ?>
-                <?php foreach($produtos_por_categoria as $categoria_id => $categoria_data): ?>
-                <div class="categoria-produtos" data-categoria="<?= $categoria_id ?>">
-                    <div class="categoria-titulo">
-                        <?= htmlspecialchars($categoria_data['categoria_nome']) ?>
-                        <span class="contador-categoria">(<?= count($categoria_data['produtos']) ?>)</span>
-                    </div>
-                    <div class="produtos-grid">
-                        <?php foreach($categoria_data['produtos'] as $produto): ?>
-                        <div class="produto-card" 
-                             data-produto-id="<?= $produto['id'] ?>"
-                             data-produto-nome="<?= htmlspecialchars($produto['nome']) ?>"
-                             data-produto-preco="<?= $produto['preco'] ?>"
-                             data-produto-categoria="<?= $categoria_id ?>"
-                             data-produto-estoque="<?= $produto['estoque_atual'] ?>"
-                             onclick="adicionarProduto(<?= $produto['id'] ?>, '<?= htmlspecialchars(addslashes($produto['nome'])) ?>', <?= $produto['preco'] ?>)">
-                            
-                            <div class="produto-nome"><?= htmlspecialchars($produto['nome']) ?></div>
-                            <div class="produto-preco">R$ <?= number_format($produto['preco'], 2, ',', '.') ?></div>
-                            <div class="produto-estoque <?= $produto['estoque_atual'] <= $produto['estoque_minimo'] ? 'estoque-baixo' : '' ?>">
-                                Est: <?= $produto['estoque_atual'] ?>
-                            </div>
-                        </div>
-                        <?php endforeach; ?>
+        <!-- Na parte dos produtos (mantenha tudo igual, só observe o data-categoria) -->
+<div class="produtos-scroll-container" id="produtos-container">
+    <?php if (!empty($produtos_por_categoria)): ?>
+        <?php foreach($produtos_por_categoria as $categoria_id => $categoria_data): ?>
+        <div class="categoria-produtos" data-categoria="<?= $categoria_id ?>">
+            <!-- O título da categoria será escondido pelo CSS -->
+            <div class="categoria-titulo" style="display: none;">
+                <?= htmlspecialchars($categoria_data['categoria_nome']) ?>
+                <span class="contador-categoria">(<?= count($categoria_data['produtos']) ?>)</span>
+            </div>
+            <div class="produtos-grid">
+                <?php foreach($categoria_data['produtos'] as $produto): ?>
+                <div class="produto-card" 
+                     data-produto-id="<?= $produto['id'] ?>"
+                     data-produto-nome="<?= htmlspecialchars($produto['nome']) ?>"
+                     data-produto-preco="<?= $produto['preco'] ?>"
+                     data-produto-categoria="<?= $categoria_id ?>" 
+                     data-produto-estoque="<?= $produto['estoque_atual'] ?>"
+                     onclick="adicionarProduto(<?= $produto['id'] ?>, '<?= htmlspecialchars(addslashes($produto['nome'])) ?>', <?= $produto['preco'] ?>)">
+                    
+                    <div class="produto-nome"><?= htmlspecialchars($produto['nome']) ?></div>
+                    <div class="produto-preco">R$ <?= number_format($produto['preco'], 2, ',', '.') ?></div>
+                    <div class="produto-estoque <?= $produto['estoque_atual'] <= $produto['estoque_minimo'] ? 'estoque-baixo' : '' ?>">
+                        Est: <?= $produto['estoque_atual'] ?>
                     </div>
                 </div>
                 <?php endforeach; ?>
-            <?php else: ?>
-                <div style="text-align: center; padding: 40px; color: #7f8c8d;">
-                    <div style="font-size: 3rem; margin-bottom: 10px;">📦</div>
-                    <h3>Nenhum produto cadastrado</h3>
-                    <p>Cadastre produtos no sistema primeiro</p>
-                </div>
-            <?php endif; ?>
+            </div>
+        </div>
+        <?php endforeach; ?>
+    <?php else: ?>
+        <div style="text-align: center; padding: 40px; color: #7f8c8d;">
+            <div style="font-size: 3rem; margin-bottom: 10px;">📦</div>
+            <h3>Nenhum produto cadastrado</h3>
+            <p>Cadastre produtos no sistema primeiro</p>
+        </div>
+    <?php endif; ?>
+</div>
+    
+    <script src="<?php echo $base_path; ?>modules/caixa/caixa.js"></script>
+
+        <!-- === MODAL SELECÃO GARÇOM DINÂMICO - BUSCA DO BD === -->
+    <div id="modalGarcom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+        <div style="background: white; padding: 25px; border-radius: 10px; width: 450px; max-width: 90vw; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.3); max-height: 80vh; overflow-y: auto;">
+            <div style="font-size: 2rem; margin-bottom: 10px;">🛎️</div>
+            <h3 style="margin-bottom: 15px; color: #2c3e50;">Selecione o Garçom</h3>
+            <p style="color: #7f8c8d; margin-bottom: 25px;">Clique no garçom responsável pelo atendimento:</p>
+            
+            <!-- Grid de Botões dos Garçons - DINÂMICO -->
+            <div id="gridGarcons" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 25px;">
+                <?php if (!empty($garcons)): ?>
+                    <?php foreach($garcons as $garcom): ?>
+                    <button class="btn-garcom" data-garcom="<?= $garcom['codigo'] ?>" onclick="selecionarGarcom('<?= $garcom['codigo'] ?>', '<?= addslashes($garcom['nome']) ?>')">
+                        <div style="font-size: 1.5rem; margin-bottom: 5px;">👨‍💼</div>
+                        <div style="font-weight: bold; font-size: 1.1rem;"><?= htmlspecialchars($garcom['codigo']) ?></div>
+                        <div style="font-size: 0.8rem; color: #7f8c8d;"><?= htmlspecialchars($garcom['nome']) ?></div>
+                    </button>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 20px; color: #7f8c8d;">
+                        <div style="font-size: 2rem; margin-bottom: 10px;">😕</div>
+                        <p>Nenhum garçom cadastrado</p>
+                        <button onclick="fecharModalGarcom()" style="background: #95a5a6; color: white; border: none; padding: 8px 16px; border-radius: 4px; margin-top: 10px; cursor: pointer;">
+                            Fechar
+                        </button>
+                    </div>
+                <?php endif; ?>
+            </div>
+
+            <div style="border-top: 1px solid #ecf0f1; padding-top: 15px;">
+                <button onclick="fecharModalGarcom()" 
+                        style="background: #95a5a6; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                    ❌ Cancelar
+                </button>
+            </div>
         </div>
     </div>
 
-    <!-- JavaScript -->
+    <!-- JavaScript do Modal -->
     <script>
-        // Passar variáveis PHP para JavaScript
-        window.appConfig = {
-            comandaAtualId: <?php echo isset($comanda_aberta) && $comanda_aberta ? $comanda_aberta['id'] : 'null'; ?>,
-            basePath: '<?php echo $base_path; ?>'
-        };
+        // Variável global para armazenar o garçom selecionado
+        let garcomSelecionado = null;
+        let garcomNomeSelecionado = null;
+
+        function abrirModalGarcom() {
+            document.getElementById('modalGarcom').style.display = 'flex';
+            garcomSelecionado = null;
+            garcomNomeSelecionado = null;
+            // Resetar seleção visual
+            document.querySelectorAll('.btn-garcom').forEach(btn => {
+                btn.style.background = '#f8f9fa';
+                btn.style.borderColor = '#ddd';
+                btn.style.color = 'inherit';
+            });
+        }
+
+        function fecharModalGarcom() {
+            document.getElementById('modalGarcom').style.display = 'none';
+            garcomSelecionado = null;
+            garcomNomeSelecionado = null;
+        }
+
+        function selecionarGarcom(codigo, nome) {
+            garcomSelecionado = codigo;
+            garcomNomeSelecionado = nome;
+            
+            // Efeito visual de seleção
+            document.querySelectorAll('.btn-garcom').forEach(btn => {
+                if (btn.getAttribute('data-garcom') === codigo) {
+                    btn.style.background = '#3498db';
+                    btn.style.borderColor = '#2980b9';
+                    btn.style.color = 'white';
+                } else {
+                    btn.style.background = '#f8f9fa';
+                    btn.style.borderColor = '#ddd';
+                    btn.style.color = 'inherit';
+                }
+            });
+            
+            // Criar comanda automaticamente após 300ms (feedback visual)
+            setTimeout(() => {
+                criarComandaComGarcom();
+            }, 300);
+        }
+
+       function criarComandaComGarcom() {
+    if (!garcomSelecionado) {
+        alert('Selecione um garçom primeiro!');
+        return;
+    }
+    
+    // Mostrar loading
+    const modal = document.getElementById('modalGarcom');
+    modal.innerHTML = `
+        <div style="background: white; padding: 30px; border-radius: 10px; text-align: center;">
+            <div style="font-size: 2rem; margin-bottom: 15px;">⏳</div>
+            <h3 style="margin-bottom: 10px;">Criando Comanda...</h3>
+            <p>Para ${garcomNomeSelecionado} (${garcomSelecionado})</p>
+        </div>
+    `;
+    
+    // CORREÇÃO: Usar caminho absoluto
+    const basePath = '<?php echo $base_path; ?>';
+    
+    // Fazer requisição AJAX para criar comanda com garçom
+    fetch(basePath + 'modules/caixa/criar_comanda.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            garcom: garcomSelecionado
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Fechar modal e recarregar
+            fecharModalGarcom();
+            mostrarNotificacao('Comanda criada com sucesso para ' + garcomNomeSelecionado, 'success');
+            // Recarregar a página para atualizar a interface
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+        } else {
+            alert('Erro ao criar comanda: ' + data.message);
+            abrirModalGarcom();
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao criar comanda. Verifique a conexão.');
+        abrirModalGarcom();
+    });
+}
+
+        // Se não existir, criar a função
+        function novaComanda() {
+            abrirModalGarcom();
+        }
     </script>
+
     <script src="<?php echo $base_path; ?>modules/caixa/caixa.js"></script>
 </body>
 </html>

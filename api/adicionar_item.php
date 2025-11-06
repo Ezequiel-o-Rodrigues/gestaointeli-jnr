@@ -9,47 +9,71 @@ $data = json_decode(file_get_contents('php://input'), true);
 try {
     $database = new Database();
     $db = $database->getConnection();
+
+    $data = json_decode(file_get_contents('php://input'), true);
     
-    // Primeiro buscar o preço do produto
-    $query_preco = "SELECT preco FROM produtos WHERE id = ?";
-    $stmt_preco = $db->prepare($query_preco);
-    $stmt_preco->execute([$data['produto_id']]);
-    $produto = $stmt_preco->fetch(PDO::FETCH_ASSOC);
-    
-    if (!$produto) {
-        throw new Exception('Produto não encontrado');
+    $comanda_id = $data['comanda_id'] ?? null;
+    $produto_id = $data['produto_id'] ?? null;
+    $quantidade = $data['quantidade'] ?? 1;
+
+    if (!$comanda_id || !$produto_id) {
+        throw new Exception('Dados incompletos');
     }
-    
-    $preco_unitario = $produto['preco'];
-    $subtotal = $preco_unitario * $data['quantidade'];
-    
-    // Inserir item na comanda
-    $query = "INSERT INTO itens_comanda (comanda_id, produto_id, quantidade, preco_unitario, subtotal) 
-              VALUES (?, ?, ?, ?, ?)";
-    $stmt = $db->prepare($query);
-    $stmt->execute([
-        $data['comanda_id'],
-        $data['produto_id'],
-        $data['quantidade'],
-        $preco_unitario,
-        $subtotal
-    ]);
-    
-    // ATUALIZAR TOTAL DA COMANDA
-    $query_update = "UPDATE comandas SET valor_total = valor_total + ? WHERE id = ?";
-    $stmt_update = $db->prepare($query_update);
-    $stmt_update->execute([$subtotal, $data['comanda_id']]);
-    
+
+    // 1. Verificar se produto existe e tem estoque disponível (APENAS VERIFICAÇÃO)
+    $query_produto = "SELECT estoque_atual, nome, preco FROM produtos WHERE id = ? AND ativo = 1";
+    $stmt_produto = $db->prepare($query_produto);
+    $stmt_produto->execute([$produto_id]);
+    $produto = $stmt_produto->fetch(PDO::FETCH_ASSOC);
+
+    if (!$produto) {
+        throw new Exception('Produto não encontrado ou inativo');
+    }
+
+    // 2. Verificar estoque disponível (APENAS VALIDAÇÃO)
+    if ($produto['estoque_atual'] < $quantidade) {
+        throw new Exception('Estoque insuficiente para o produto: ' . $produto['nome']);
+    }
+
+    // 3. Verificar se item já existe na comanda
+    $query_existe = "SELECT id, quantidade FROM itens_comanda   WHERE comanda_id = ? AND produto_id = ?";
+    $stmt_existe = $db->prepare($query_existe);
+    $stmt_existe->execute([$comanda_id, $produto_id]);
+    $item_existente = $stmt_existe->fetch(PDO::FETCH_ASSOC);
+
+    if ($item_existente) {
+        // Atualizar quantidade do item existente
+        $nova_quantidade = $item_existente['quantidade'] + $quantidade;
+        $query_update = "UPDATE itens_comanda SET quantidade = ?, subtotal = ? * ? WHERE id = ?";
+        $stmt_update = $db->prepare($query_update);
+        $stmt_update->execute([$nova_quantidade, $produto['preco'], $nova_quantidade, $item_existente['id']]);
+    } else {
+        // Inserir novo item
+        $subtotal = $produto['preco'] * $quantidade;
+        $query_insert = "INSERT INTO itens_comanda (comanda_id, produto_id, quantidade, preco_unitario, subtotal) VALUES (?, ?, ?, ?, ?)";
+        $stmt_insert = $db->prepare($query_insert);
+        $stmt_insert->execute([$comanda_id, $produto_id, $quantidade, $produto['preco'], $subtotal]);
+    }
+
+    // 4. Atualizar total da comanda (SEM BAIXAR ESTOQUE)
+    $query_total = "SELECT SUM(subtotal) as total FROM itens_comanda WHERE comanda_id = ?";
+    $stmt_total = $db->prepare($query_total);
+    $stmt_total->execute([$comanda_id]);
+    $total = $stmt_total->fetch(PDO::FETCH_ASSOC);
+
+    $query_update_comanda = "UPDATE comandas SET valor_total = ? WHERE id = ?";
+    $stmt_update_comanda = $db->prepare($query_update_comanda);
+    $stmt_update_comanda->execute([$total['total'] ?? 0, $comanda_id]);
+
     echo json_encode([
         'success' => true,
-        'message' => 'Item adicionado com sucesso',
-        'item_id' => $db->lastInsertId()
+        'message' => 'Item adicionado à comanda (estoque será baixado apenas na finalização)'
     ]);
-    
+
 } catch (Exception $e) {
     echo json_encode([
         'success' => false,
-        'message' => 'Erro: ' . $e->getMessage()
+        'message' => $e->getMessage()
     ]);
 }
 ?>

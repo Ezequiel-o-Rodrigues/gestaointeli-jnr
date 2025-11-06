@@ -1,9 +1,13 @@
-// Variáveis globais
-let comandaAtualId = window.appConfig ? window.appConfig.comandaAtualId : null;
-let itensComanda = [];
+// VERIFICAR se a variável já foi declarada antes de declarar
+if (typeof comandaAtualId === 'undefined') {
+    var comandaAtualId = window.appConfig ? window.appConfig.comandaAtualId : null;
+}
+
+// Inicializar outras variáveis
+var itensComanda = [];
 const API_BASE = '../../api/';
 
-// Função auxiliar para API
+// Função auxiliar para API com melhor tratamento   
 async function apiCall(endpoint, options = {}) {
     const url = API_BASE + endpoint;
     console.log('📡 Chamando API:', url);
@@ -19,11 +23,23 @@ async function apiCall(endpoint, options = {}) {
         
         console.log('📦 Resposta HTTP:', response.status, response.statusText);
         
+        // Verificar se a resposta é JSON válido
+        const text = await response.text();
+        console.log('📄 Resposta bruta:', text.substring(0, 200));
+        
         if (!response.ok) {
             throw new Error(`Erro HTTP: ${response.status} - ${response.statusText}`);
         }
         
-        const data = await response.json();
+        // Tentar parsear como JSON
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (parseError) {
+            console.error('❌ Erro ao parsear JSON:', parseError);
+            throw new Error('Resposta da API não é JSON válido: ' + text.substring(0, 100));
+        }
+        
         console.log('✅ Resposta API:', data);
         return data;
         
@@ -56,7 +72,13 @@ async function novaComanda() {
         }
     } catch (error) {
         console.error('❌ Erro detalhado na criação:', error);
-        mostrarNotificacao('Erro ao criar comanda. Verifique o console.', 'error');
+        
+        // FALLBACK: criar comanda localmente para teste
+        const novaComandaId = Math.floor(Math.random() * 900) + 100;
+        comandaAtualId = novaComandaId;
+        itensComanda = [];
+        atualizarInterfaceComanda();
+        mostrarNotificacao('Comanda #' + novaComandaId + ' criada (modo teste)', 'warning');
     }
 }
 
@@ -297,81 +319,6 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
-}
-
-// Função para criar nova comanda com fallback
-async function novaComanda() {
-    console.log('🔄 Tentando criar nova comanda...');
-    
-    try {
-        const result = await apiCall('nova_comanda.php', {
-            method: 'POST',
-            body: JSON.stringify({})
-        });
-        
-        console.log('📋 Resultado da criação:', result);
-        
-        if (result.success) {
-            comandaAtualId = result.comanda_id;
-            itensComanda = [];
-            atualizarInterfaceComanda();
-            mostrarNotificacao('Nova comanda #' + comandaAtualId + ' criada!', 'success');
-        } else {
-            mostrarNotificacao('Erro ao criar comanda: ' + (result.message || 'Erro desconhecido'), 'error');
-        }
-    } catch (error) {
-        console.error('❌ Erro detalhado na criação:', error);
-        
-        // FALLBACK: criar comanda localmente para teste
-        const novaComandaId = Math.floor(Math.random() * 900) + 100;
-        comandaAtualId = novaComandaId;
-        itensComanda = [];
-        atualizarInterfaceComanda();
-        mostrarNotificacao('Comanda #' + novaComandaId + ' criada (modo teste)', 'warning');
-    }
-}
-
-// Função auxiliar para API com melhor tratamento
-async function apiCall(endpoint, options = {}) {
-    const url = API_BASE + endpoint;
-    console.log('📡 Chamando API:', url);
-    
-    try {
-        const response = await fetch(url, {
-            headers: {
-                'Content-Type': 'application/json',
-                ...(options.headers || {})
-            },
-            ...options
-        });
-        
-        console.log('📦 Resposta HTTP:', response.status, response.statusText);
-        
-        // Verificar se a resposta é JSON válido
-        const text = await response.text();
-        console.log('📄 Resposta bruta:', text.substring(0, 200));
-        
-        if (!response.ok) {
-            throw new Error(`Erro HTTP: ${response.status} - ${response.statusText}`);
-        }
-        
-        // Tentar parsear como JSON
-        let data;
-        try {
-            data = JSON.parse(text);
-        } catch (parseError) {
-            console.error('❌ Erro ao parsear JSON:', parseError);
-            throw new Error('Resposta da API não é JSON válido: ' + text.substring(0, 100));
-        }
-        
-        console.log('✅ Resposta API:', data);
-        return data;
-        
-    } catch (error) {
-        console.error('❌ Erro na API:', error);
-        mostrarNotificacao('Erro de conexão: ' + error.message, 'error');
-        throw error;
-    }
 }
 
 // Inicialização
