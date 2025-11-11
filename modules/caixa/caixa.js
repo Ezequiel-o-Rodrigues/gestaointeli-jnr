@@ -50,6 +50,18 @@ class CaixaSystem {
         if (buscaInput) {
             buscaInput.focus();
         }
+
+        // Delegação de clique para produtos renderizados pelo servidor (produto-card)
+        const produtosContainer = document.getElementById('produtos-container') || document.getElementById('lista-produtos');
+        if (produtosContainer) {
+            produtosContainer.addEventListener('click', (e) => {
+                const card = e.target.closest('.produto-card');
+                if (card && card.dataset && card.dataset.produtoId) {
+                    const pid = parseInt(card.dataset.produtoId, 10);
+                    this.adicionarItem(pid, 1);
+                }
+            });
+        }
     }
     
     async carregarProdutos() {
@@ -161,8 +173,17 @@ class CaixaSystem {
     
     async adicionarItem(produtoId, quantidade = 1) {
         if (!this.comandaAtual) {
-            this.mostrarToast('Crie uma comanda primeiro', 'warning');
-            return;
+            // Perguntar ao usuário se quer criar uma comanda sem garçom
+            const criar = confirm('Nenhuma comanda aberta. Deseja criar uma comanda sem garçom?');
+            if (!criar) return;
+
+            // Criar comanda automaticamente
+            await this.novaComanda();
+
+            if (!this.comandaAtual || !this.comandaAtual.id) {
+                this.mostrarToast('Não foi possível criar a comanda', 'error');
+                return;
+            }
         }
         
         if (this.carregando) return;

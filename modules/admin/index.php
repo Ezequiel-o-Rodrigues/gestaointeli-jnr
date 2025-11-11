@@ -76,6 +76,16 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </div>
     </div>
 
+    <!-- Card: Desempenho dos Garçons -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">📈 Desempenho dos Garçons (hoje)</h5>
+            <div id="garcons-performance">
+                <div class="text-center py-4" id="garcons-loading">Carregando dados...</div>
+            </div>
+        </div>
+    </div>
+
     <?php if (!empty($_SESSION['sucesso'])): ?>
         <div class="alert alert-success"><?= $_SESSION['sucesso']; unset($_SESSION['sucesso']); ?></div>
     <?php endif; ?>
@@ -175,8 +185,64 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
       </form>
     </div>
   </div>
-</div>
 
+<!-- Bootstrap JS (bundle com Popper) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="<?= PathConfig::modules('admin/') ?>admin.js"></script>
+
+<!-- Fetch and render performance dos garçons -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const container = document.getElementById('garcons-performance');
+    const loading = document.getElementById('garcons-loading');
+    const apiUrl = '<?= PathConfig::api("garcons.php") ?>';
+
+    function formatCurrency(v) {
+        return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    fetch(apiUrl)
+        .then(r => r.json())
+        .then(data => {
+            loading && loading.remove();
+            if (data.error) {
+                container.innerHTML = '<div class="alert alert-danger">Erro: ' + data.error + '</div>';
+                return;
+            }
+
+            const avg = data.average || 0;
+            let html = '';
+            html += '<p class="small text-muted">Total comandas: <strong>' + data.total_comandas + '</strong> • Garçons ativos: <strong>' + data.active_garcons + '</strong> • Média: <strong>' + avg + '</strong></p>';
+            html += '<div class="table-responsive"><table class="table table-sm align-middle">';
+            html += '<thead><tr><th>Garçom</th><th>Comandas</th><th>Performance</th><th>Vendas</th><th>Comissão</th><th>Classificação</th></tr></thead><tbody>';
+
+            data.garcons.forEach(g => {
+                const pct = g.percent_of_average !== null ? g.percent_of_average : 0;
+                const barValue = Math.min(pct, 200);
+                const badgeClass = g.badge ? 'badge bg-' + g.badge : 'badge bg-secondary';
+                html += '<tr>';
+                html += '<td>' + (g.codigo ? ('<small class="text-muted">' + g.codigo + '</small> ') : '') + g.nome + '</td>';
+                html += '<td>' + g.comandas + '</td>';
+                html += '<td style="min-width:220px">';
+                html += '<div class="d-flex align-items-center">';
+                html += '<div class="progress flex-grow-1 me-2" style="height:12px"><div class="progress-bar" role="progressbar" style="width:' + barValue + '%" aria-valuenow="' + barValue + '" aria-valuemin="0" aria-valuemax="200"></div></div>';
+                html += '<small class="text-muted">' + (g.percent_of_average !== null ? g.percent_of_average + '%':'-') + '</small>';
+                html += '</div></td>';
+                html += '<td>' + formatCurrency(g.vendas_total) + '</td>';
+                html += '<td>' + formatCurrency(g.comissao) + '</td>';
+                html += '<td><span class="' + badgeClass + '">' + g.classification + '</span></td>';
+                html += '</tr>';
+            });
+
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        })
+        .catch(err => {
+            loading && loading.remove();
+            container.innerHTML = '<div class="alert alert-danger">Erro ao carregar dados</div>';
+            console.error(err);
+        });
+});
+</script>
 
 <?php require_once '../../includes/footer.php'; ?>
