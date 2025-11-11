@@ -14,7 +14,7 @@ try {
     $database = new Database();
     $db = $database->getConnection();
     
-    $query = "SELECT ic.*, p.nome 
+    $query = "SELECT ic.id, ic.comanda_id, ic.produto_id, ic.quantidade, ic.subtotal, p.nome as nome_produto
               FROM itens_comanda ic 
               JOIN produtos p ON ic.produto_id = p.id 
               WHERE ic.comanda_id = ?";

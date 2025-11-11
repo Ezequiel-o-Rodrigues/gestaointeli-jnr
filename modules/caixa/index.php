@@ -606,8 +606,7 @@ try {
             basePath: '<?php echo $base_path; ?>'
         };
     }
-    </script>
-    <script src="<?php echo $base_path; ?>modules/caixa/caixa.js"></script>
+    </script>   
 
         <!-- === MODAL SELECÃO GARÇOM DINÂMICO - BUSCA DO BD === -->
     <div id="modalGarcom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
@@ -750,6 +749,47 @@ try {
         }
     </script>
 
+    <script>
+        // Wrapper global para compatibilidade com os elementos inline do template
+        // Chamado pelos onclick nos cards: adicionarProduto(produtoId, nome, preco)
+        function adicionarProduto(produtoId, nome, preco) {
+            if (window.caixaSystem && typeof window.caixaSystem.adicionarItem === 'function') {
+                // Delega completamente pro CaixaSystem (que já gerencia confirmação e criação de comanda)
+                window.caixaSystem.adicionarItem(produtoId, 1);
+                return;
+            }
+
+            // Fallback (CaixaSystem ainda não carregou)
+            console.warn('CaixaSystem ainda não pronto. Tente novamente em alguns momentos.');
+        }
+
+        // Delegar chamadas de busca pra CaixaSystem se existir
+        function filtrarProdutos() {
+            const el = document.getElementById('search-produto') || document.getElementById('busca-produto');
+            const termo = el ? el.value : '';
+            if (window.caixaSystem && typeof window.caixaSystem.filtrarProdutos === 'function') {
+                window.caixaSystem.filtrarProdutos(termo);
+            }
+        }
+
+        // Delegar finalização de comanda pro CaixaSystem
+        function finalizarComanda() {
+            if (window.caixaSystem && typeof window.caixaSystem.finalizarComanda === 'function') {
+                window.caixaSystem.finalizarComanda();
+            } else {
+                alert('Sistema ainda não está pronto. Tente novamente em alguns momentos.');
+            }
+        }
+
+        // Delegar cancelamento de comanda pro CaixaSystem
+        function cancelarComanda() {
+            if (window.caixaSystem && typeof window.caixaSystem.cancelarComanda === 'function') {
+                window.caixaSystem.cancelarComanda();
+            }
+        }
+    </script>
+
+    <!-- Carregamento do CaixaSystem (com proteção contra duplicação) -->
     <script src="<?php echo $base_path; ?>modules/caixa/caixa.js"></script>
 </body>
 </html>

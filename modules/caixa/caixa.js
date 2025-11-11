@@ -1,5 +1,11 @@
 // modules/caixa/caixa.js
-class CaixaSystem {
+// Proteção contra dupla inicialização/declaração quando o script é incluído mais de uma vez
+if (window.CaixaSystemAlreadyLoaded) {
+    console.warn('CaixaSystem já carregado. Ignorando segunda inclusão.');
+} else {
+    window.CaixaSystemAlreadyLoaded = true;
+
+    class CaixaSystem {
     constructor() {
         this.comandaAtual = null;
         this.itensComanda = [];
@@ -12,27 +18,37 @@ class CaixaSystem {
     async init() {
         await this.carregarProdutos();
         this.configurarEventos();
+
+        // Se o servidor informou uma comanda atual (via window.appConfig), sincronizar
+        try {
+            if (window.appConfig && window.appConfig.comandaAtualId) {
+                const cid = window.appConfig.comandaAtualId;
+                if (cid) {
+                    this.comandaAtual = { id: cid };
+                    await this.carregarItensComanda();
+                    this.atualizarUIComanda();
+                }
+            }
+        } catch (e) {
+            console.warn('Não foi possível sincronizar comanda inicial:', e);
+        }
+
         this.mostrarToast('Sistema de caixa carregado', 'success');
     }
     
     configurarEventos() {
-        // Nova comanda
-        document.getElementById('btn-nova-comanda').addEventListener('click', () => {
-            this.novaComanda();
-        });
+        // Nota: botões finalizarComanda e cancelarComanda têm onclick inline no template
+        // que delega para as funções globais, então não registramos listeners aqui
+        // para evitar duplicação de chamadas
         
-        // Finalizar venda
-        document.getElementById('btn-finalizar').addEventListener('click', () => {
-            this.finalizarComanda();
-        });
+        // Nova comanda (sem onclick inline, então usamos addEventListener)
+        const btnNova = document.getElementById('btn-nova-comanda');
+        if (btnNova) {
+            btnNova.addEventListener('click', () => this.novaComanda());
+        }
         
-        // Cancelar
-        document.getElementById('btn-cancelar').addEventListener('click', () => {
-            this.cancelarComanda();
-        });
-        
-        // Busca de produtos
-        const buscaInput = document.getElementById('busca-produto');
+        // Busca de produtos (aceitar nomes de id alternativos do template)
+        const buscaInput = document.getElementById('busca-produto') || document.getElementById('search-produto');
         if (buscaInput) {
             buscaInput.addEventListener('input', (e) => {
                 this.filtrarProdutos(e.target.value);
@@ -51,17 +67,9 @@ class CaixaSystem {
             buscaInput.focus();
         }
 
-        // Delegação de clique para produtos renderizados pelo servidor (produto-card)
-        const produtosContainer = document.getElementById('produtos-container') || document.getElementById('lista-produtos');
-        if (produtosContainer) {
-            produtosContainer.addEventListener('click', (e) => {
-                const card = e.target.closest('.produto-card');
-                if (card && card.dataset && card.dataset.produtoId) {
-                    const pid = parseInt(card.dataset.produtoId, 10);
-                    this.adicionarItem(pid, 1);
-                }
-            });
-        }
+        // NOTA: Os produtos têm onclick inline no template (adicionarProduto)
+        // que delega para this.adicionarItem(), então NÃO registramos listeners aqui
+        // para evitar duplicação de chamadas de clique
     }
     
     async carregarProdutos() {
@@ -228,50 +236,87 @@ class CaixaSystem {
             const response = await fetch(`../../api/itens_comanda.php?comanda_id=${this.comandaAtual.id}`);
             const data = await response.json();
 
+            // DEBUG: log para diagnóstico
+            console.log('Resposta itens_comanda.php:', data);
+
             // aceitar formatos diferentes retornados pela API
             if (data.success && data.itens) {
                 this.itensComanda = data.itens;
-            } else if (data.itens) {
+            } else if (data.itens && Array.isArray(data.itens)) {
                 this.itensComanda = data.itens;
             } else if (Array.isArray(data)) {
                 this.itensComanda = data;
             } else if (data.itens_comanda) {
                 this.itensComanda = data.itens_comanda;
+            } else {
+                // Se nada der match, tentar assumir que é um array vazio ou erro
+                this.itensComanda = [];
+                console.warn('Formato inesperado na resposta de itens:', data);
             }
+
+            console.log('Itens carregados:', this.itensComanda);
 
             this.atualizarListaItens();
             this.atualizarTotal();
             this.atualizarBotaoFinalizar();
         } catch (error) {
             console.error('Erro ao carregar itens:', error);
+            this.itensComanda = [];
+            this.atualizarListaItens();
         }
     }
     
     atualizarListaItens() {
-        const container = document.getElementById('lista-itens');
+        // Usar container horizontal (novo layout) ou fallback para lista-itens (se existir)
+        const containerHorizontal = document.getElementById('itens-comanda-horizontal') || document.getElementById('itens-comanda');
+        const containerLista = document.getElementById('lista-itens');
+        
+        // Decidir qual container usar
+        const container = containerHorizontal || containerLista;
         const totalElement = document.getElementById('total-comanda');
         
-        if (!container) return;
+        if (!container) {
+            console.warn('Nenhum container de itens encontrado (itens-comanda-horizontal, itens-comanda, ou lista-itens)');
+            return;
+        }
+        
+        console.log('Atualizando lista itens. Container:', container.id, 'Itens:', this.itensComanda.length);
         
         if (this.itensComanda.length === 0) {
-            container.innerHTML = '<div class="item-vazio">Nenhum item adicionado</div>';
+            container.innerHTML = '<div class="empty-comanda">Nenhum item adicionado</div>';
             if (totalElement) totalElement.textContent = '0.00';
             return;
         }
         
         container.innerHTML = '';
-        this.itensComanda.forEach(item => {
-            const itemEl = this.criarElementoItem(item);
-            container.appendChild(itemEl);
+        this.itensComanda.forEach((item, index) => {
+            try {
+                let itemEl;
+                // Renderizar em formato horizontal se for container horizontal
+                if (container === containerHorizontal) {
+                    itemEl = this.criarElementoItemHorizontal(item);
+                } else {
+                    itemEl = this.criarElementoItem(item);
+                }
+                if (itemEl) {
+                    container.appendChild(itemEl);
+                }
+            } catch (e) {
+                console.error('Erro ao renderizar item:', index, item, e);
+            }
         });
+        
+        console.log('Lista de itens atualizada com sucesso');
     }
     
     criarElementoItem(item) {
         const div = document.createElement('div');
         div.className = 'item-comanda';
+        // Aceitar tanto 'nome_produto' quanto 'nome'
+        const nomeProduto = item.nome_produto || item.nome || 'Produto';
         div.innerHTML = `
             <div class="item-info">
-                <span class="item-nome">${this.escapeHtml(item.nome_produto)}</span>
+                <span class="item-nome">${this.escapeHtml(nomeProduto)}</span>
                 <span class="item-quantidade">${item.quantidade}x</span>
                 <span class="item-subtotal">R$ ${parseFloat(item.subtotal).toFixed(2)}</span>
             </div>
@@ -286,49 +331,104 @@ class CaixaSystem {
         
         return div;
     }
+
+    criarElementoItemHorizontal(item) {
+        const div = document.createElement('div');
+        div.className = 'item-comanda-horizontal';
+        // Aceitar tanto 'nome_produto' quanto 'nome'
+        const nomeProduto = item.nome_produto || item.nome || 'Produto';
+        const preco = item.subtotal ? parseFloat(item.subtotal).toFixed(2) : '0.00';
+        
+        console.log('Criando item horizontal:', { id: item.id, nome: nomeProduto, quantidade: item.quantidade });
+        
+        div.innerHTML = `
+            <span class="item-nome">${this.escapeHtml(nomeProduto)}</span>
+            <span class="item-quantidade">${item.quantidade}</span>
+            <span class="item-preco">R$ ${preco}</span>
+            <button class="btn-remover" data-item-id="${item.id}" type="button">✕</button>
+        `;
+        
+        const btnRemover = div.querySelector('.btn-remover');
+        if (btnRemover) {
+            btnRemover.addEventListener('click', (e) => {
+                e.stopPropagation(); // Evitar bubbling
+                console.log('Botão remover clicado. Item ID:', item.id);
+                this.removerItem(item.id);
+            });
+        } else {
+            console.warn('Botão remover não encontrado para item:', item.id);
+        }
+        
+        return div;
+    }
     
     async removerItem(itemId) {
-        if (!this.comandaAtual || this.carregando) return;
+        console.log('removerItem chamado. itemId:', itemId, 'comandaAtual:', this.comandaAtual, 'carregando:', this.carregando);
+        
+        if (!this.comandaAtual) {
+            this.mostrarToast('Nenhuma comanda ativa', 'warning');
+            return;
+        }
+        
+        if (this.carregando) {
+            this.mostrarToast('Operação em andamento...', 'info');
+            return;
+        }
         
         try {
             this.carregando = true;
             
-            // Usar endpoint PHP do projeto
+            console.log('Enviando requisição para remover item:', itemId, 'de comanda:', this.comandaAtual.id);
+            
+            // Usar endpoint PHP do projeto (API espera comanda_id E item_id)
             const response = await fetch('../../api/remover_item.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
+                    comanda_id: this.comandaAtual.id,
                     item_id: itemId
                 })
             });
             
             const data = await response.json();
             
+            console.log('Resposta remover_item:', data);
+            
             if (data.success) {
                 await this.carregarItensComanda();
-                this.mostrarToast('Item removido', 'success');
+                this.mostrarToast('Item removido com sucesso', 'success');
             } else {
-                this.mostrarToast(data.message, 'error');
+                this.mostrarToast(data.message || 'Erro ao remover item', 'error');
             }
         } catch (error) {
             console.error('Erro ao remover item:', error);
-            this.mostrarToast('Erro ao remover item', 'error');
+            this.mostrarToast('Erro ao remover item: ' + error.message, 'error');
         } finally {
             this.carregando = false;
         }
     }
     
     async finalizarComanda() {
+        console.log('finalizarComanda chamado. Estado:', {
+            comandaAtual: this.comandaAtual,
+            itensCount: this.itensComanda.length,
+            carregando: this.carregando
+        });
+
         if (!this.comandaAtual || this.itensComanda.length === 0) {
-            this.mostrarToast('Comanda vazia', 'warning');
+            this.mostrarToast('Comanda vazia ou não existe comanda aberta', 'warning');
             return;
         }
         
-        if (this.carregando) return;
+        if (this.carregando) {
+            this.mostrarToast('Operação em andamento, aguarde...', 'info');
+            return;
+        }
         
         // Primeiro validar estoque
+        console.log('Validando estoque...');
         const estoqueOk = await this.validarEstoqueFinalizacao();
         if (!estoqueOk) {
             this.mostrarToast('Estoque insuficiente para finalizar venda', 'error');
@@ -337,11 +437,14 @@ class CaixaSystem {
         
         // Confirmar finalização
         if (!confirm('Finalizar comanda e baixar estoque?')) {
+            console.log('Usuário cancelou confirmação de finalização');
             return;
         }
         
         try {
             this.carregando = true;
+            
+            console.log('Enviando requisição para finalizar comanda:', this.comandaAtual.id);
             
             // Usar endpoint PHP do projeto
             const response = await fetch('../../api/finalizar_comanda.php', {
@@ -356,24 +459,34 @@ class CaixaSystem {
             
             const data = await response.json();
             
+            console.log('Resposta finalizar_comanda:', data);
+            
             if (data.success) {
-                this.mostrarToast('Comanda finalizada com sucesso!', 'success');
+                this.mostrarToast('Comanda finalizada com sucesso! Total: R$ ' + data.valor_total.toFixed(2), 'success');
+                // Limpar comanda e atualizar UI
                 this.limparComanda();
+                console.log('Comanda limpa e UI atualizada');
             } else {
-                this.mostrarToast(data.message, 'error');
+                this.mostrarToast(data.message || 'Erro ao finalizar comanda', 'error');
+                console.error('Erro na resposta:', data.message);
             }
         } catch (error) {
             console.error('Erro ao finalizar comanda:', error);
-            this.mostrarToast('Erro ao finalizar comanda', 'error');
+            this.mostrarToast('Erro ao finalizar comanda: ' + error.message, 'error');
         } finally {
             this.carregando = false;
         }
     }
     
     async validarEstoqueFinalizacao() {
-        if (!this.comandaAtual) return false;
+        if (!this.comandaAtual) {
+            console.warn('validarEstoqueFinalizacao: comanda não existe');
+            return false;
+        }
         
         try {
+            console.log('Validando estoque para comanda:', this.comandaAtual.id);
+            
             // Usar endpoint PHP do projeto
             const response = await fetch('../../api/verificar_estoque.php', {
                 method: 'POST',
@@ -386,16 +499,26 @@ class CaixaSystem {
             });
             
             const data = await response.json();
+            console.log('Resposta verificar_estoque:', data);
+            
             // aceitar diferentes formatos
-            if (typeof data.estoque_suficiente !== 'undefined') return data.estoque_suficiente;
-            if (typeof data.success !== 'undefined' && data.success === false) return false;
+            if (typeof data.estoque_suficiente !== 'undefined') {
+                const resultado = data.estoque_suficiente;
+                console.log('Estoque suficiente:', resultado);
+                return resultado;
+            }
+            if (typeof data.success !== 'undefined' && data.success === false) {
+                console.log('API retornou erro');
+                return false;
+            }
+            console.log('Estoque válido (sem bloqueios explícitos)');
             return true;
         } catch (error) {
             console.error('Erro ao validar estoque:', error);
             return false;
         }
     }
-    
+
     cancelarComanda() {
         if (!this.comandaAtual) {
             this.mostrarToast('Nenhuma comanda ativa', 'warning');
@@ -415,20 +538,20 @@ class CaixaSystem {
     }
     
     atualizarUIComanda() {
-        const numeroElement = document.getElementById('comanda-numero');
-        const statusElement = document.getElementById('comanda-status');
+        const numeroElement = document.getElementById('comanda-numero') || document.getElementById('numero-comanda');
         const totalElement = document.getElementById('total-comanda');
         
-        if (!numeroElement || !statusElement) return;
+        if (!numeroElement) {
+            console.warn('Elemento numero-comanda não encontrado');
+            return;
+        }
+        
+        console.log('Atualizando UI comanda. Estado:', this.comandaAtual);
         
         if (this.comandaAtual) {
-            numeroElement.textContent = this.comandaAtual.id;
-            statusElement.textContent = 'Aberta';
-            statusElement.className = 'comanda-status status-aberta';
+            numeroElement.textContent = '#' + this.comandaAtual.id;
         } else {
             numeroElement.textContent = '--';
-            statusElement.textContent = 'Nenhuma comanda ativa';
-            statusElement.className = 'comanda-status status-inativa';
             if (totalElement) totalElement.textContent = '0.00';
             this.atualizarListaItens();
         }
@@ -512,7 +635,11 @@ class CaixaSystem {
     }
 }
 
-// Inicializar sistema quando DOM estiver pronto
-document.addEventListener('DOMContentLoaded', () => {
-    window.caixaSystem = new CaixaSystem();
-});
+    // Inicializar sistema quando DOM estiver pronto
+    document.addEventListener('DOMContentLoaded', () => {
+        // evitar duplicação de instância
+        if (!window.caixaSystem) {
+            window.caixaSystem = new CaixaSystem();
+        }
+    });
+}
