@@ -23,10 +23,6 @@ async function apiCall(endpoint, options = {}) {
         
         console.log('📦 Resposta HTTP:', response.status, response.statusText);
         
-        // Verificar se a resposta é JSON válido
-        const text = await response.text();
-        console.log('📄 Resposta bruta:', text.substring(0, 200));
-        
         if (!response.ok) {
             throw new Error(`Erro HTTP: ${response.status} - ${response.statusText}`);
         }
