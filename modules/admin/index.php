@@ -1,7 +1,6 @@
 <?php
 require_once '../../config/database.php';
 require_once '../../includes/functions.php';
-require_once '../../includes/header.php';
 
 $database = new Database();
 $db = $database->getConnection();
@@ -56,6 +55,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['sucesso'] = 'Usuário removido.';
             header('Location: index.php'); exit;
         }
+
+        if ($action === 'save_commission') {
+    $rate_percent = floatval($_POST['commission_rate'] ?? 3);
+    if ($rate_percent < 0 || $rate_percent > 100) {
+        throw new Exception('Taxa de comissão deve estar entre 0% e 100%.');
+    }
+    
+    $rate = $rate_percent / 100; // Converter de porcentagem para decimal
+    
+    // Usar a NOVA tabela configuracoes_sistema
+    $stmt = $db->prepare("INSERT INTO configuracoes_sistema (chave, valor, descricao) VALUES ('commission_rate', ?, 'Taxa de comissão dos garçons') ON DUPLICATE KEY UPDATE valor = ?, updated_at = NOW()");
+    $stmt->execute([$rate, $rate]);
+    $_SESSION['sucesso'] = 'Taxa de comissão atualizada para ' . number_format($rate_percent, 1) . '%.';
+    header('Location: index.php'); exit;
+}
     } catch (Exception $e) {
         $_SESSION['erro'] = 'Erro: ' . $e->getMessage();
         header('Location: index.php'); exit;
@@ -66,125 +80,94 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $stmt = $db->prepare('SELECT id, nome, email, perfil, ativo, created_at FROM usuarios ORDER BY id DESC');
 $stmt->execute();
 $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Buscar configuração de comissão - NOVO CÓDIGO
+try {
+    $stmt = $db->prepare('SELECT valor FROM configuracoes_sistema WHERE chave = "commission_rate"');
+    $stmt->execute();
+    $config = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($config && isset($config['valor'])) {
+        $current_commission = floatval($config['valor']);
+    } else {
+        // Se não existir, criar com valor padrão
+        $stmt = $db->prepare("INSERT INTO configuracoes_sistema (chave, valor, descricao) VALUES ('commission_rate', '0.03', 'Taxa de comissão dos garçons')");
+        $stmt->execute();
+        $current_commission = 0.03;
+    }
+} catch (Exception $e) {
+    // Fallback para valor padrão em caso de erro
+    $current_commission = 0.03;
+    error_log("Erro ao buscar taxa de comissão: " . $e->getMessage());
+}
+
+require_once '../../includes/header.php';
 ?>
 
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h3">⚙️ Administração</h1>
-        <div>
-            <button class="btn btn-primary" id="btn-novo-usuario">+ Novo Usuário</button>
+    </div>
+
+    <?php if (isset($_SESSION['sucesso'])): ?>
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <?= $_SESSION['sucesso'] ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php unset($_SESSION['sucesso']); ?>
+    <?php endif; ?>
+
+    <?php if (isset($_SESSION['erro'])): ?>
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <?= $_SESSION['erro'] ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php unset($_SESSION['erro']); ?>
+    <?php endif; ?>
+
+    <!-- Card: Configurações -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">⚙️ Configurações do Sistema</h5>
+            <form method="POST" class="row g-3">
+                <input type="hidden" name="action" value="save_commission">
+                <div class="col-md-4">
+                    <label for="commission_rate" class="form-label">Taxa de Comissão dos Garçons (%)</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control" id="commission_rate" name="commission_rate" 
+                               value="<?= $current_commission * 100 ?>" min="0" max="100" step="0.1" required>
+                        <span class="input-group-text">%</span>
+                    </div>
+                    <div class="form-text">Taxa atual: <?= number_format($current_commission * 100, 1) ?>%</div>
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary">Salvar Configuração</button>
+                </div>
+            </form>
         </div>
     </div>
 
     <!-- Card: Desempenho dos Garçons -->
     <div class="card mb-4">
         <div class="card-body">
-            <h5 class="card-title">📈 Desempenho dos Garçons (hoje)</h5>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="card-title mb-0">📈 Desempenho dos Garçons</h5>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-secondary" onclick="setPeriodoRapido('hoje')">Hoje</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setPeriodoRapido('semana')">Esta Semana</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setPeriodoRapido('mes')">Este Mês</button>
+                    </div>
+                    <input type="date" id="data-inicio-garcons" class="form-control form-control-sm" value="<?= date('Y-m-d') ?>" style="width: 150px;">
+                    <input type="date" id="data-fim-garcons" class="form-control form-control-sm" value="<?= date('Y-m-d') ?>" style="width: 150px;">
+                    <button class="btn btn-primary btn-sm" onclick="atualizarDesempenhoGarcons()">Atualizar</button>
+                </div>
+            </div>
             <div id="garcons-performance">
                 <div class="text-center py-4" id="garcons-loading">Carregando dados...</div>
             </div>
         </div>
     </div>
-
-    <?php if (!empty($_SESSION['sucesso'])): ?>
-        <div class="alert alert-success"><?= $_SESSION['sucesso']; unset($_SESSION['sucesso']); ?></div>
-    <?php endif; ?>
-    <?php if (!empty($_SESSION['erro'])): ?>
-        <div class="alert alert-danger"><?= $_SESSION['erro']; unset($_SESSION['erro']); ?></div>
-    <?php endif; ?>
-
-    <div class="card">
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Nome</th>
-                            <th>Email</th>
-                            <th>Perfil</th>
-                            <th>Ativo</th>
-                            <th>Criado</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($usuarios as $u): ?>
-                        <tr>
-                            <td><?= $u['id'] ?></td>
-                            <td><?= htmlspecialchars($u['nome']) ?></td>
-                            <td><?= htmlspecialchars($u['email']) ?></td>
-                            <td><?= htmlspecialchars($u['perfil']) ?></td>
-                            <td><?= $u['ativo'] ? '<span class="badge bg-success">Ativo</span>' : '<span class="badge bg-secondary">Inativo</span>' ?></td>
-                            <td><?= $u['created_at'] ?></td>
-                            <td>
-                                <div class="btn-group btn-group-sm">
-                                    <button class="btn btn-outline-primary" onclick='openUserModal(<?= json_encode($u) ?>)'>✏️ Editar</button>
-                                    <form method="post" style="display:inline" onsubmit="return confirm('Confirmar alteração de status?');">
-                                        <input type="hidden" name="action" value="toggle_user">
-                                        <input type="hidden" name="id" value="<?= $u['id'] ?>">
-                                        <button class="btn btn-outline-warning">🔁 Ativar/Desativar</button>
-                                    </form>
-                                    <form method="post" style="display:inline" onsubmit="return confirm('Remover usuário?');">
-                                        <input type="hidden" name="action" value="delete_user">
-                                        <input type="hidden" name="id" value="<?= $u['id'] ?>">
-                                        <button class="btn btn-outline-danger">🗑️ Remover</button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal Usuário -->
-<div class="modal fade" id="userModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Usuário</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-      </div>
-      <form method="post" id="userForm">
-        <div class="modal-body">
-            <input type="hidden" name="action" value="save_user">
-            <input type="hidden" name="id" id="userId">
-            <div class="mb-3">
-                <label class="form-label">Nome</label>
-                <input type="text" name="nome" id="userNome" class="form-control" required>
-            </div>
-            <div class="mb-3">
-                <label class="form-label">Email</label>
-                <input type="email" name="email" id="userEmail" class="form-control" required>
-            </div>
-            <div class="mb-3">
-                <label class="form-label">Senha <small class="text-muted">(preencha para alterar)</small></label>
-                <input type="password" name="senha" id="userSenha" class="form-control">
-            </div>
-            <div class="mb-3">
-                <label class="form-label">Perfil</label>
-                <select name="perfil" id="userPerfil" class="form-select">
-                    <option value="admin">admin</option>
-                    <option value="garcom">garcom</option>
-                    <option value="usuario">usuario</option>
-                </select>
-            </div>
-            <div class="form-check mb-3">
-                <input type="checkbox" name="ativo" id="userAtivo" class="form-check-input">
-                <label class="form-check-label" for="userAtivo">Ativo</label>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="submit" class="btn btn-primary">Salvar</button>
-        </div>
-      </form>
-    </div>
-  </div>
 
 <!-- Bootstrap JS (bundle com Popper) -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -192,27 +175,43 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 <!-- Fetch and render performance dos garçons -->
 <script>
-document.addEventListener('DOMContentLoaded', function () {
+function formatCurrency(v) {
+    return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function formatPeriod(dataInicio, dataFim) {
+    if (dataInicio === dataFim) {
+        return new Date(dataInicio + 'T00:00:00').toLocaleDateString('pt-BR');
+    }
+    return new Date(dataInicio + 'T00:00:00').toLocaleDateString('pt-BR') + ' a ' + new Date(dataFim + 'T00:00:00').toLocaleDateString('pt-BR');
+}
+
+function carregarDesempenhoGarcons() {
     const container = document.getElementById('garcons-performance');
     const loading = document.getElementById('garcons-loading');
+    const dataInicio = document.getElementById('data-inicio-garcons').value;
+    const dataFim = document.getElementById('data-fim-garcons').value;
     const apiUrl = '<?= PathConfig::api("garcons.php") ?>';
-
-    function formatCurrency(v) {
-        return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    
+    const url = `${apiUrl}?data_inicio=${dataInicio}&data_fim=${dataFim}`;
+    
+    if (!loading) {
+        container.innerHTML = '<div class="text-center py-4">Carregando dados...</div>';
     }
 
-    fetch(apiUrl)
+    fetch(url)
         .then(r => r.json())
         .then(data => {
-            loading && loading.remove();
             if (data.error) {
                 container.innerHTML = '<div class="alert alert-danger">Erro: ' + data.error + '</div>';
                 return;
             }
 
             const avg = data.average || 0;
+            const periodo = formatPeriod(data.data_inicio, data.data_fim);
+            const commissionRate = data.commission_rate_percent || 3;
             let html = '';
-            html += '<p class="small text-muted">Total comandas: <strong>' + data.total_comandas + '</strong> • Garçons ativos: <strong>' + data.active_garcons + '</strong> • Média: <strong>' + avg + '</strong></p>';
+            html += '<p class="small text-muted">Período: <strong>' + periodo + '</strong> • Comandas com garçons: <strong>' + data.total_comandas + '</strong> • Garçons ativos: <strong>' + data.active_garcons + '</strong> • Média: <strong>' + avg + '</strong> • Comissão: <strong>' + commissionRate + '%</strong></p>';
             html += '<div class="table-responsive"><table class="table table-sm align-middle">';
             html += '<thead><tr><th>Garçom</th><th>Comandas</th><th>Performance</th><th>Vendas</th><th>Comissão</th><th>Classificação</th></tr></thead><tbody>';
 
@@ -238,10 +237,46 @@ document.addEventListener('DOMContentLoaded', function () {
             container.innerHTML = html;
         })
         .catch(err => {
-            loading && loading.remove();
             container.innerHTML = '<div class="alert alert-danger">Erro ao carregar dados</div>';
             console.error(err);
         });
+}
+
+function atualizarDesempenhoGarcons() {
+    carregarDesempenhoGarcons();
+}
+
+function setPeriodoRapido(periodo) {
+    const dataInicioInput = document.getElementById('data-inicio-garcons');
+    const dataFimInput = document.getElementById('data-fim-garcons');
+    const hoje = new Date();
+    
+    switch(periodo) {
+        case 'hoje':
+            const hojeStr = hoje.toISOString().split('T')[0];
+            dataInicioInput.value = hojeStr;
+            dataFimInput.value = hojeStr;
+            break;
+            
+        case 'semana':
+            const inicioSemana = new Date(hoje);
+            inicioSemana.setDate(hoje.getDate() - hoje.getDay() + 1); // Segunda-feira
+            dataInicioInput.value = inicioSemana.toISOString().split('T')[0];
+            dataFimInput.value = hoje.toISOString().split('T')[0];
+            break;
+            
+        case 'mes':
+            const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+            dataInicioInput.value = inicioMes.toISOString().split('T')[0];
+            dataFimInput.value = hoje.toISOString().split('T')[0];
+            break;
+    }
+    
+    carregarDesempenhoGarcons();
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    carregarDesempenhoGarcons();
 });
 </script>
 

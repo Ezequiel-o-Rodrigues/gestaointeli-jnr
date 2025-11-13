@@ -49,4 +49,21 @@ function getProdutosAtivos($db, $categoria_id = null) {
     $stmt->execute();
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
+
+function getInitials($name) {
+    if (empty($name)) return 'US';
+    
+    $names = explode(' ', $name);
+    $initials = '';
+    
+    if (count($names) >= 2) {
+        // Primeira letra do primeiro nome + primeira letra do último nome
+        $initials = strtoupper(substr($names[0], 0, 1) . substr($names[count($names)-1], 0, 1));
+    } else {
+        // Se só tem um nome, pega as duas primeiras letras
+        $initials = strtoupper(substr($name, 0, 2));
+    }
+    
+    return $initials;
+}
 ?>

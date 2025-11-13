@@ -789,6 +789,25 @@ try {
         }
     </script>
 
+    <!-- Script de impressão -->
+<script src="<?php echo $base_path; ?>modules/caixa/impressao-service.js"></script>
+
+<script>
+// Teste de compatibilidade Web USB
+document.addEventListener('DOMContentLoaded', function() {
+    if (navigator.usb) {
+        console.log('Web USB API suportada');
+        // Opcional: mostrar status da impressora
+        const statusElement = document.createElement('div');
+        statusElement.style.cssText = 'position: fixed; bottom: 10px; right: 10px; background: #f8f9fa; padding: 5px 10px; border-radius: 4px; font-size: 0.8rem; border: 1px solid #dee2e6;';
+        statusElement.innerHTML = '🖨️ Web USB Disponível';
+        document.body.appendChild(statusElement);
+    } else {
+        console.warn('Web USB não suportada');
+    }
+});
+</script>
+
     <!-- Carregamento do CaixaSystem (com proteção contra duplicação) -->
     <script src="<?php echo $base_path; ?>modules/caixa/caixa.js"></script>
 </body>
