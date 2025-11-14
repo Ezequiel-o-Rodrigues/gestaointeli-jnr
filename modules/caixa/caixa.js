@@ -146,7 +146,7 @@ if (window.CaixaSystemAlreadyLoaded) {
         try {
             this.carregando = true;
             
-            // Usar endpoint PHP do projeto
+            // Usar endpoint PHP do projeto (sem garçom)
             const response = await fetch('../../api/nova_comanda.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
@@ -167,13 +167,46 @@ if (window.CaixaSystemAlreadyLoaded) {
 
                 this.itensComanda = [];
                 this.atualizarUIComanda();
-                this.mostrarToast('Nova comanda criada', 'success');
+                this.mostrarToast('Nova comanda criada (sem garçom)', 'success');
             } else {
                 throw new Error(data.message || 'Erro ao criar comanda');
             }
         } catch (error) {
             console.error('Erro ao criar comanda:', error);
             this.mostrarToast('Erro ao criar comanda', 'error');
+        } finally {
+            this.carregando = false;
+        }
+    }
+    
+    async criarComandaComGarcom(garcomCodigo) {
+        if (this.carregando) return;
+        
+        try {
+            this.carregando = true;
+            
+            // Usar endpoint específico para criar comanda com garçom
+            const response = await fetch('criar_comanda.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ garcom: garcomCodigo })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.comandaAtual = { id: data.comanda_id };
+                this.itensComanda = [];
+                this.atualizarUIComanda();
+                this.mostrarToast(data.message || 'Comanda criada com garçom', 'success');
+                return true;
+            } else {
+                throw new Error(data.message || 'Erro ao criar comanda com garçom');
+            }
+        } catch (error) {
+            console.error('Erro ao criar comanda com garçom:', error);
+            this.mostrarToast('Erro ao criar comanda: ' + error.message, 'error');
+            return false;
         } finally {
             this.carregando = false;
         }
@@ -463,9 +496,26 @@ if (window.CaixaSystemAlreadyLoaded) {
             
             if (data.success) {
                 this.mostrarToast('Comanda finalizada com sucesso! Total: R$ ' + data.valor_total.toFixed(2), 'success');
-                // Limpar comanda e atualizar UI
+                
+                // Mostrar modal de comprovante
+                const modal = document.getElementById('modalComprovante');
+                const totalElement = document.getElementById('totalVenda');
+                
+                if (modal) {
+                    // Atualizar valor total no modal
+                    if (totalElement) {
+                        totalElement.innerHTML = `Total: <strong>R$ ${data.valor_total.toFixed(2).replace('.', ',')}</strong>`;
+                    }
+                    
+                    // Armazenar comprovante_id para os botões
+                    modal.dataset.comprovanteId = data.comprovante_id;
+                    
+                    // Mostrar modal
+                    modal.style.display = 'flex';
+                }
+                
+                // Limpar comanda
                 this.limparComanda();
-                console.log('Comanda limpa e UI atualizada');
             } else {
                 this.mostrarToast(data.message || 'Erro ao finalizar comanda', 'error');
                 console.error('Erro na resposta:', data.message);
@@ -613,19 +663,181 @@ if (window.CaixaSystemAlreadyLoaded) {
     }
     
     mostrarToast(mensagem, tipo = 'info') {
-        // Implementação simples de toast
-        const toastContainer = document.getElementById('toast-container');
-        if (!toastContainer) return;
+        // Criar container se não existir
+        let toastContainer = document.getElementById('toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toast-container';
+            toastContainer.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 3000;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                align-items: center;
+            `;
+            document.body.appendChild(toastContainer);
+        }
         
         const toast = document.createElement('div');
         toast.className = `toast toast-${tipo}`;
         toast.textContent = mensagem;
         
+        // Estilos do toast
+        const cores = {
+            success: '#27ae60',
+            error: '#e74c3c',
+            warning: '#f39c12',
+            info: '#3498db'
+        };
+        
+        toast.style.cssText = `
+            background: ${cores[tipo] || cores.info};
+            color: white;
+            padding: 12px 16px;
+            border-radius: 6px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            font-size: 14px;
+            max-width: 300px;
+            word-wrap: break-word;
+            animation: slideIn 0.3s ease;
+        `;
+        
         toastContainer.appendChild(toast);
         
         setTimeout(() => {
-            toast.remove();
+            toast.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.remove();
+                }
+            }, 300);
         }, 3000);
+        
+        // Adicionar animações CSS se não existirem
+        if (!document.getElementById('toast-animations')) {
+            const style = document.createElement('style');
+            style.id = 'toast-animations';
+            style.textContent = `
+                @keyframes slideIn {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+                @keyframes slideOut {
+                    from { transform: translateX(0); opacity: 1; }
+                    to { transform: translateX(100%); opacity: 0; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    }
+    
+
+    mostrarModalComprovante(comprovanteId, valorTotal) {
+        console.log('mostrarModalComprovante chamado:', comprovanteId, valorTotal);
+        
+        const modal = document.getElementById('modalComprovante');
+        console.log('Modal encontrado:', modal);
+        
+        const totalElement = document.getElementById('totalVenda');
+        console.log('Total element encontrado:', totalElement);
+        
+        if (!modal) {
+            console.error('Modal de comprovante não encontrado no DOM');
+            return;
+        }
+        
+        // Atualizar valor total
+        if (totalElement) {
+            totalElement.innerHTML = `Total: <strong>R$ ${valorTotal.toFixed(2).replace('.', ',')}</strong>`;
+        }
+        
+        console.log('Mostrando modal...');
+        // Mostrar modal
+        modal.style.display = 'flex';
+        
+        // Armazenar comprovante_id para uso nos botões
+        modal.dataset.comprovanteId = comprovanteId;
+        
+        console.log('Modal deve estar visível agora');
+    }
+    
+    fecharModalComprovante() {
+        const modal = document.getElementById('modalComprovante');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+    
+    async imprimirComprovante(comprovanteId) {
+        try {
+            console.log('Imprimindo comprovante:', comprovanteId);
+            
+            const response = await fetch('../../api/imprimir_comprovante.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    comprovante_id: comprovanteId
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Tentar impressão via Web USB se disponível
+                if (window.impressaoService && typeof window.impressaoService.imprimirComprovante === 'function') {
+                    await window.impressaoService.imprimirComprovante(data.conteudo);
+                } else {
+                    // Fallback: mostrar conteúdo em nova janela para impressão
+                    this.mostrarComprovanteParaImpressao(data.conteudo);
+                }
+                
+                this.mostrarToast('Comprovante enviado para impressão', 'success');
+            } else {
+                this.mostrarToast('Erro ao imprimir: ' + data.message, 'error');
+            }
+        } catch (error) {
+            console.error('Erro ao imprimir comprovante:', error);
+            this.mostrarToast('Erro ao imprimir comprovante', 'error');
+        }
+    }
+    
+    mostrarComprovanteParaImpressao(conteudo) {
+        // Converter comandos ESC/POS para texto legível
+        const textoLimpo = conteudo
+            .replace(/\x1B[\x40\x61\x01\x00\x45\x69]/g, '') // Remover comandos ESC/POS
+            .replace(/\x01/g, '')
+            .replace(/\x00/g, '')
+            .replace(/\n{3,}/g, '\n\n'); // Reduzir múltiplas quebras de linha
+        
+        const janela = window.open('', '_blank', 'width=400,height=600');
+        janela.document.write(`
+            <html>
+                <head>
+                    <title>Comprovante</title>
+                    <style>
+                        body { font-family: 'Courier New', monospace; font-size: 12px; margin: 20px; }
+                        pre { white-space: pre-wrap; }
+                    </style>
+                </head>
+                <body>
+                    <pre>${textoLimpo}</pre>
+                    <script>
+                        window.onload = function() {
+                            if (confirm('Imprimir comprovante?')) {
+                                window.print();
+                            }
+                        };
+                    </script>
+                </body>
+            </html>
+        `);
+        janela.document.close();
     }
     
     escapeHtml(text) {

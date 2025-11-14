@@ -70,6 +70,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $_SESSION['sucesso'] = 'Taxa de comissão atualizada para ' . number_format($rate_percent, 1) . '%.';
     header('Location: index.php'); exit;
 }
+
+        if ($action === 'save_garcom') {
+            $id = !empty($_POST['id']) ? (int)$_POST['id'] : null;
+            $nome = trim($_POST['nome'] ?? '');
+            $codigo = trim($_POST['codigo'] ?? '');
+            $ativo = isset($_POST['ativo']) ? 1 : 0;
+
+            if (empty($nome)) throw new Exception('Nome é obrigatório.');
+
+            if ($id) {
+                $stmt = $db->prepare("UPDATE garcons SET nome = ?, codigo = ?, ativo = ? WHERE id = ?");
+                $stmt->execute([$nome, $codigo, $ativo, $id]);
+                $_SESSION['sucesso'] = 'Garçom atualizado com sucesso.';
+            } else {
+                $stmt = $db->prepare("INSERT INTO garcons (nome, codigo, ativo, created_at) VALUES (?, ?, ?, NOW())");
+                $stmt->execute([$nome, $codigo, $ativo]);
+                $_SESSION['sucesso'] = 'Garçom criado com sucesso.';
+            }
+            header('Location: index.php'); exit;
+        }
+
+        if ($action === 'toggle_garcom') {
+            $id = (int)($_POST['id'] ?? 0);
+            $stmt = $db->prepare('UPDATE garcons SET ativo = NOT ativo WHERE id = ?');
+            $stmt->execute([$id]);
+            $_SESSION['sucesso'] = 'Status do garçom alterado.';
+            header('Location: index.php'); exit;
+        }
+
+        if ($action === 'delete_garcom') {
+            $id = (int)($_POST['id'] ?? 0);
+            $stmt = $db->prepare('DELETE FROM garcons WHERE id = ?');
+            $stmt->execute([$id]);
+            $_SESSION['sucesso'] = 'Garçom removido.';
+            header('Location: index.php'); exit;
+        }
     } catch (Exception $e) {
         $_SESSION['erro'] = 'Erro: ' . $e->getMessage();
         header('Location: index.php'); exit;
@@ -80,6 +116,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $stmt = $db->prepare('SELECT id, nome, email, perfil, ativo, created_at FROM usuarios ORDER BY id DESC');
 $stmt->execute();
 $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Buscar garçons
+$stmt = $db->prepare('SELECT id, nome, codigo, ativo, created_at FROM garcons ORDER BY nome');
+$stmt->execute();
+$garcons = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Buscar configuração de comissão - NOVO CÓDIGO
 try {
@@ -168,6 +209,93 @@ require_once '../../includes/header.php';
             </div>
         </div>
     </div>
+
+    <!-- Card: Gerenciar Garçons -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="card-title mb-0">👨‍🍳 Gerenciar Garçons</h5>
+                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#garcomModal" onclick="novoGarcom()">Novo Garçom</button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Código</th>
+                            <th>Status</th>
+                            <th>Criado em</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach($garcons as $garcom): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($garcom['nome']) ?></td>
+                            <td><?= htmlspecialchars($garcom['codigo'] ?? '-') ?></td>
+                            <td>
+                                <span class="badge bg-<?= $garcom['ativo'] ? 'success' : 'secondary' ?>">
+                                    <?= $garcom['ativo'] ? 'Ativo' : 'Inativo' ?>
+                                </span>
+                            </td>
+                            <td><?= date('d/m/Y', strtotime($garcom['created_at'])) ?></td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" onclick="editarGarcom(<?= $garcom['id'] ?>, '<?= htmlspecialchars($garcom['nome']) ?>', '<?= htmlspecialchars($garcom['codigo'] ?? '') ?>', <?= $garcom['ativo'] ?>)" data-bs-toggle="modal" data-bs-target="#garcomModal">Editar</button>
+                                <form method="POST" class="d-inline" onsubmit="return confirm('Alternar status?')">
+                                    <input type="hidden" name="action" value="toggle_garcom">
+                                    <input type="hidden" name="id" value="<?= $garcom['id'] ?>">
+                                    <button type="submit" class="btn btn-sm btn-outline-warning">Toggle</button>
+                                </form>
+                                <form method="POST" class="d-inline" onsubmit="return confirm('Remover garçom?')">
+                                    <input type="hidden" name="action" value="delete_garcom">
+                                    <input type="hidden" name="id" value="<?= $garcom['id'] ?>">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Remover</button>
+                                </form>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+<!-- Modal Garçom -->
+<div class="modal fade" id="garcomModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="garcomModalTitle">Novo Garçom</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" id="garcomForm">
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="save_garcom">
+                    <input type="hidden" name="id" id="garcom_id">
+                    
+                    <div class="mb-3">
+                        <label for="garcom_nome" class="form-label">Nome *</label>
+                        <input type="text" class="form-control" id="garcom_nome" name="nome" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="garcom_codigo" class="form-label">Código</label>
+                        <input type="text" class="form-control" id="garcom_codigo" name="codigo">
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="garcom_ativo" name="ativo" checked>
+                        <label class="form-check-label" for="garcom_ativo">Ativo</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 <!-- Bootstrap JS (bundle com Popper) -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -278,6 +406,21 @@ function setPeriodoRapido(periodo) {
 document.addEventListener('DOMContentLoaded', function () {
     carregarDesempenhoGarcons();
 });
+
+function novoGarcom() {
+    document.getElementById('garcomModalTitle').textContent = 'Novo Garçom';
+    document.getElementById('garcomForm').reset();
+    document.getElementById('garcom_id').value = '';
+    document.getElementById('garcom_ativo').checked = true;
+}
+
+function editarGarcom(id, nome, codigo, ativo) {
+    document.getElementById('garcomModalTitle').textContent = 'Editar Garçom';
+    document.getElementById('garcom_id').value = id;
+    document.getElementById('garcom_nome').value = nome;
+    document.getElementById('garcom_codigo').value = codigo;
+    document.getElementById('garcom_ativo').checked = ativo == 1;
+}
 </script>
 
 <?php require_once '../../includes/footer.php'; ?>

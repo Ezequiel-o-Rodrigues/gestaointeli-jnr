@@ -122,7 +122,6 @@ function gerarConteudoComprovante($comanda) {
     // Rodapé
     $linhas[] = str_repeat("-", 48);
     $linhas[] = "SUBTOTAL: R$ " . number_format($comanda['valor_total'] - $comanda['taxa_gorjeta'], 2, ',', '.');
-    $linhas[] = "GORJETA:  R$ " . number_format($comanda['taxa_gorjeta'], 2, ',', '.');
     $linhas[] = str_repeat("=", 48);
     $linhas[] = $bold_on . "TOTAL:    R$ " . number_format($comanda['valor_total'], 2, ',', '.') . $bold_off;
     $linhas[] = str_repeat("=", 48);

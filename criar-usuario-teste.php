@@ -6,8 +6,8 @@ try {
     $db = $database->getConnection();
     
     // Criar usuário de teste
-    $nome = "Usuário Teste";
-    $email = "teste@teste.com";
+    $nome = "Junior";
+    $email = " espetinhojunior2@gmail.com";
     $senha = "123456";
     $hash = password_hash($senha, PASSWORD_DEFAULT);
     

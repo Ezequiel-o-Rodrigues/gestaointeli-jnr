@@ -307,7 +307,7 @@ try {
 .produtos-scroll-container {
     flex: 1;
     overflow-y: auto;
-    padding: 5px;s
+    padding: 5px;
     height: 100%;
 }
 
@@ -645,6 +645,27 @@ try {
         </div>
     </div>
 
+    <!-- MODAL COMPROVANTE -->
+    <div id="modalComprovante" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; justify-content: center; align-items: center;">
+        <div style="background: white; padding: 30px; border-radius: 10px; width: 400px; max-width: 90vw; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.3);">
+            <div style="font-size: 3rem; margin-bottom: 15px; color: #27ae60;">✅</div>
+            <h3 style="margin-bottom: 15px; color: #2c3e50;">Venda Finalizada!</h3>
+            <p id="totalVenda" style="color: #7f8c8d; margin-bottom: 20px;">Total: <strong>R$ 0,00</strong></p>
+            <p style="color: #7f8c8d; margin-bottom: 25px;">Deseja imprimir o comprovante?</p>
+            
+            <div style="display: flex; gap: 15px; justify-content: center;">
+                <button id="btnImprimirComprovante" 
+                        style="background: #3498db; color: white; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                    🖨️ Imprimir
+                </button>
+                <button id="btnPularImpressao" 
+                        style="background: #95a5a6; color: white; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                    ❌ Não Imprimir
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- JavaScript do Modal -->
     <script>
         // Variável global para armazenar o garçom selecionado
@@ -692,60 +713,61 @@ try {
             }, 300);
         }
 
-        function criarComandaComGarcom() {
+        async function criarComandaComGarcom() {
             if (!garcomSelecionado) {
                 alert('Selecione um garçom primeiro!');
                 return;
             }
             
-            // Mostrar loading
-            const modal = document.getElementById('modalGarcom');
-            modal.innerHTML = `
-                <div style="background: white; padding: 30px; border-radius: 10px; text-align: center;">
-                    <div style="font-size: 2rem; margin-bottom: 15px;">⏳</div>
-                    <h3 style="margin-bottom: 10px;">Criando Comanda...</h3>
-                    <p>Para ${garcomNomeSelecionado} (${garcomSelecionado})</p>
-                </div>
-            `;
-            
-            // Fazer requisição AJAX para criar comanda com garçom
-            fetch(window.appConfig.basePath + 'modules/caixa/criar_comanda.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    garcom: garcomSelecionado
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
+            try {
+                // Fazer requisição direta
+                const response = await fetch('criar_comanda.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        garcom: garcomSelecionado
+                    })
+                });
+                
+                const data = await response.json();
+                
                 if (data.success) {
-                    // Fechar modal e recarregar
+                    // Atualizar CaixaSystem se disponível
+                    if (window.caixaSystem) {
+                        window.caixaSystem.comandaAtual = { id: data.comanda_id };
+                        window.caixaSystem.itensComanda = [];
+                        window.caixaSystem.atualizarUIComanda();
+                    }
+                    
                     fecharModalGarcom();
-                    // Pequeno delay para mostrar sucesso
-                    setTimeout(() => {
-                        location.reload();
-                    }, 500);
+                    
+                    // Mostrar toast se disponível
+                    if (window.caixaSystem && typeof window.caixaSystem.mostrarToast === 'function') {
+                        window.caixaSystem.mostrarToast(data.message, 'success');
+                    }
                 } else {
-                    alert('Erro ao criar comanda: ' + data.message);
-                    abrirModalGarcom();
+                    throw new Error(data.message || 'Erro ao criar comanda');
                 }
-            })
-            .catch(error => {
-                console.error('Erro:', error);
-                alert('Erro ao criar comanda. Verifique a conexão.');
-                abrirModalGarcom();
-            });
+            } catch (error) {
+                console.error('Erro ao criar comanda:', error);
+                alert('Erro ao criar comanda: ' + error.message);
+                fecharModalGarcom();
+            }
         }
 
         // Função novaComanda (chamada pelo botão)
         function novaComanda() {
-            abrirModalGarcom();
-        }
-        // Se não existir, criar a função
-        function novaComanda() {
-            abrirModalGarcom();
+            // Verificar se já existe uma comanda aberta
+            if (window.caixaSystem && window.caixaSystem.comandaAtual) {
+                if (confirm('Já existe uma comanda aberta. Deseja cancelá-la e criar uma nova?')) {
+                    window.caixaSystem.limparComanda();
+                    abrirModalGarcom();
+                }
+            } else {
+                abrirModalGarcom();
+            }
         }
     </script>
 
@@ -810,5 +832,36 @@ document.addEventListener('DOMContentLoaded', function() {
 
     <!-- Carregamento do CaixaSystem (com proteção contra duplicação) -->
     <script src="<?php echo $base_path; ?>modules/caixa/caixa.js"></script>
+    
+    <script>
+    // Event listeners para modal de comprovante
+    document.addEventListener('DOMContentLoaded', function() {
+        const btnImprimir = document.getElementById('btnImprimirComprovante');
+        const btnPular = document.getElementById('btnPularImpressao');
+        
+        if (btnImprimir) {
+            btnImprimir.addEventListener('click', function() {
+                const modal = document.getElementById('modalComprovante');
+                const comprovanteId = modal ? modal.dataset.comprovanteId : null;
+                
+                if (comprovanteId && window.caixaSystem) {
+                    window.caixaSystem.imprimirComprovante(comprovanteId);
+                }
+                
+                if (window.caixaSystem) {
+                    window.caixaSystem.fecharModalComprovante();
+                }
+            });
+        }
+        
+        if (btnPular) {
+            btnPular.addEventListener('click', function() {
+                if (window.caixaSystem) {
+                    window.caixaSystem.fecharModalComprovante();
+                }
+            });
+        }
+    });
+    </script>
 </body>
 </html>

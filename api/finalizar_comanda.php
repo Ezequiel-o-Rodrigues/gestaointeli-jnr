@@ -67,6 +67,40 @@ try {
         $update_prod->execute([$qtd, $pid]);
     }
 
+    // Gerar comprovante automaticamente
+    $query_comprovante = "
+        SELECT 
+            c.id as comanda_id,
+            c.valor_total,
+            c.taxa_gorjeta,
+            c.data_venda,
+            g.nome as garcom_nome,
+            g.codigo as garcom_codigo,
+            GROUP_CONCAT(CONCAT(p.nome, '|', ic.quantidade, '|', ic.preco_unitario, '|', ic.subtotal) SEPARATOR ';') as itens
+        FROM comandas c
+        LEFT JOIN garcons g ON c.garcom_id = g.id
+        LEFT JOIN itens_comanda ic ON c.id = ic.comanda_id
+        LEFT JOIN produtos p ON ic.produto_id = p.id
+        WHERE c.id = ?
+        GROUP BY c.id
+    ";
+    
+    $stmt_comp = $db->prepare($query_comprovante);
+    $stmt_comp->execute([$comanda_id]);
+    $comanda_data = $stmt_comp->fetch(PDO::FETCH_ASSOC);
+    
+    $comprovante_id = null;
+    if ($comanda_data) {
+        // Gerar conteúdo do comprovante
+        $conteudo = gerarConteudoComprovante($comanda_data);
+        
+        // Salvar comprovante
+        $query_insert = "INSERT INTO comprovantes_venda (comanda_id, conteudo, tipo) VALUES (?, ?, 'cliente')";
+        $stmt_insert = $db->prepare($query_insert);
+        $stmt_insert->execute([$comanda_id, $conteudo]);
+        $comprovante_id = $db->lastInsertId();
+    }
+
     $db->commit();
 
     // Limpar buffer e enviar JSON
@@ -75,7 +109,8 @@ try {
         'success' => true,
         'message' => 'Comanda finalizada e estoque baixado com sucesso',
         'valor_total' => $total_comanda,
-        'taxa_gorjeta' => $taxa_gorjeta
+        'taxa_gorjeta' => $taxa_gorjeta,
+        'comprovante_id' => $comprovante_id
     ], JSON_UNESCAPED_UNICODE);
     exit;
 
@@ -87,6 +122,68 @@ try {
         'message' => $e->getMessage()
     ], JSON_UNESCAPED_UNICODE);
     exit;
+}
+
+function gerarConteudoComprovante($comanda) {
+    $itens = explode(';', $comanda['itens']);
+    $linhas = [];
+    
+    // Comandos ESC/POS
+    $reset = "\x1B\x40"; // Reset printer
+    $center = "\x1B\x61\x01"; // Center align
+    $left = "\x1B\x61\x00"; // Left align
+    $bold_on = "\x1B\x45\x01"; // Bold on
+    $bold_off = "\x1B\x45\x00"; // Bold off
+    $cut = "\x1B\x69"; // Partial cut
+    
+    // Cabeçalho
+    $linhas[] = $reset . $center . $bold_on . "ESPETINHO DO JUNIOR" . $bold_off . $left;
+    $linhas[] = str_repeat("-", 48);
+    $linhas[] = "Comanda: #" . $comanda['comanda_id'];
+    $linhas[] = "Data: " . date('d/m/Y H:i', strtotime($comanda['data_venda']));
+    $linhas[] = "Garçom: " . ($comanda['garcom_nome'] ? $comanda['garcom_nome'] . " (" . $comanda['garcom_codigo'] . ")" : "Não informado");
+    $linhas[] = str_repeat("-", 48);
+    $linhas[] = "QTD  DESCRICAO";
+    $linhas[] = "     VALOR UNIT.   SUBTOTAL";
+    $linhas[] = str_repeat("-", 48);
+    
+    // Itens
+    foreach ($itens as $item) {
+        if (empty($item)) continue;
+        
+        list($nome, $quantidade, $preco_unitario, $subtotal) = explode('|', $item);
+        
+        // Formatar nome do produto
+        $nome_linhas = str_split($nome, 25);
+        
+        $linhas[] = str_pad($quantidade, 4) . " " . $nome_linhas[0];
+        $linhas[] = "     R$ " . str_pad(number_format($preco_unitario, 2, ',', '.'), 8) . 
+                   "   R$ " . number_format($subtotal, 2, ',', '.');
+        
+        // Linhas adicionais do nome
+        for ($i = 1; $i < count($nome_linhas); $i++) {
+            $linhas[] = "     " . $nome_linhas[$i];
+        }
+        
+        $linhas[] = ""; // Linha em branco
+    }
+    
+    // Rodapé
+    $linhas[] = str_repeat("-", 48);
+    $linhas[] = "SUBTOTAL: R$ " . number_format($comanda['valor_total'] - $comanda['taxa_gorjeta'], 2, ',', '.');
+    $linhas[] = "GORJETA:  R$ " . number_format($comanda['taxa_gorjeta'], 2, ',', '.');
+    $linhas[] = str_repeat("=", 48);
+    $linhas[] = $bold_on . "TOTAL:    R$ " . number_format($comanda['valor_total'], 2, ',', '.') . $bold_off;
+    $linhas[] = str_repeat("=", 48);
+    $linhas[] = "";
+    $linhas[] = $center . "OBRIGADO PELA PREFERÊNCIA!";
+    $linhas[] = $center . "VOLTE SEMPRE!";
+    $linhas[] = "";
+    $linhas[] = $center . date('d/m/Y H:i:s');
+    $linhas[] = "\n\n\n\n\n"; // Avançar papel
+    $linhas[] = $cut; // Cortar papel
+    
+    return implode("\n", $linhas);
 }
 
 ?>
