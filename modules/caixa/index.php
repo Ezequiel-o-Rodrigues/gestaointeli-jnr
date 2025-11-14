@@ -187,6 +187,13 @@ try {
             justify-content: center;
             font-size: 0.7rem;
             font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+        
+        .item-quantidade:hover {
+            background: #2980b9;
+            transform: scale(1.1);
         }
 
         .item-preco {
@@ -831,7 +838,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
     <!-- Carregamento do CaixaSystem (com proteção contra duplicação) -->
-    <script src="<?php echo $base_path; ?>modules/caixa/caixa.js"></script>
+    <script src="<?php echo $base_path; ?>modules/caixa/caixa.js?v=<?= time() ?>"></script>
     
     <script>
     // Event listeners para modal de comprovante

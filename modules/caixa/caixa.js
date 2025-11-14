@@ -372,11 +372,9 @@ if (window.CaixaSystemAlreadyLoaded) {
         const nomeProduto = item.nome_produto || item.nome || 'Produto';
         const preco = item.subtotal ? parseFloat(item.subtotal).toFixed(2) : '0.00';
         
-        console.log('Criando item horizontal:', { id: item.id, nome: nomeProduto, quantidade: item.quantidade });
-        
         div.innerHTML = `
             <span class="item-nome">${this.escapeHtml(nomeProduto)}</span>
-            <span class="item-quantidade">${item.quantidade}</span>
+            <span class="item-quantidade" data-item-id="${item.id}" title="Clique para alterar quantidade">${item.quantidade}</span>
             <span class="item-preco">R$ ${preco}</span>
             <button class="btn-remover" data-item-id="${item.id}" type="button">✕</button>
         `;
@@ -384,15 +382,67 @@ if (window.CaixaSystemAlreadyLoaded) {
         const btnRemover = div.querySelector('.btn-remover');
         if (btnRemover) {
             btnRemover.addEventListener('click', (e) => {
-                e.stopPropagation(); // Evitar bubbling
+                e.stopPropagation();
                 console.log('Botão remover clicado. Item ID:', item.id);
                 this.removerItem(item.id);
             });
-        } else {
-            console.warn('Botão remover não encontrado para item:', item.id);
+        }
+        
+        const quantidadeSpan = div.querySelector('.item-quantidade');
+        if (quantidadeSpan) {
+            quantidadeSpan.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.alterarQuantidadeItem(item.id, item.quantidade, nomeProduto);
+            });
         }
         
         return div;
+    }
+    
+    async alterarQuantidadeItem(itemId, quantidadeAtual, nomeProduto) {
+        const novaQuantidade = prompt(`Quantidade de "${nomeProduto}":`, quantidadeAtual);
+        if (novaQuantidade === null) return; // Cancelou
+        
+        const qtd = parseInt(novaQuantidade);
+        if (isNaN(qtd) || qtd <= 0) {
+            alert('Quantidade inválida');
+            return;
+        }
+        
+        if (qtd === parseInt(quantidadeAtual)) return; // Sem alteração
+        
+        if (this.carregando) {
+            this.mostrarToast('Operação em andamento...', 'info');
+            return;
+        }
+        
+        try {
+            this.carregando = true;
+            
+            const response = await fetch('../../api/adicionar_item.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    comanda_id: this.comandaAtual.id,
+                    item_id: itemId,
+                    nova_quantidade: qtd
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                await this.carregarItensComanda();
+                this.mostrarToast('Quantidade alterada', 'success');
+            } else {
+                this.mostrarToast(data.message || 'Erro ao alterar quantidade', 'error');
+            }
+        } catch (error) {
+            console.error('Erro ao alterar quantidade:', error);
+            this.mostrarToast('Erro ao alterar quantidade', 'error');
+        } finally {
+            this.carregando = false;
+        }
     }
     
     async removerItem(itemId) {
