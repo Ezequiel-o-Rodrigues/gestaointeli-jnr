@@ -27,7 +27,7 @@ if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > 
     
     // Se não está na página de login, redirecionar
     if (basename($_SERVER['PHP_SELF']) !== 'login.php') {
-        header('Location: /gestaointeli-jnr/login.php?expired=1');
+        header('Location: /login.php?expired=1');
         exit;
     }
 }

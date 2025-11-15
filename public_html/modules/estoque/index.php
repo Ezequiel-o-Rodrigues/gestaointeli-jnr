@@ -499,7 +499,7 @@ foreach ($produtos as $produto) {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <!-- Estoque Manager -->
-<script src="/gestaointeli-jnr/modules/estoque/js/estoque-manager.js"></script>
+<script src="/modules/estoque/js/estoque-manager.js"></script>
 
 <script>
 // Funções para Inventário Físico

@@ -1,6 +1,6 @@
 <?php
-// CORRIGIR CAMINHOS - ajuste conforme sua estrutura real
-$base_path = ' /gestaointeli-jnr/';
+// Configuração para Hostinger (raiz do site)
+$base_path = '/';
 
 // Usar caminhos absolutos com __DIR__
 require_once __DIR__ . '/../../config/database.php';
