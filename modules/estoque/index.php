@@ -1,15 +1,12 @@
 <?php
 require_once '../../config/database.php';
 require_once '../../includes/functions.php';
-require_once '../../includes/header.php';
 
 $database = new Database();
 $db = $database->getConnection();
 
-// ✅ CORREÇÃO: Verificar action antes de usar
+// Processar registro de inventário ANTES do header
 $action = $_POST['action'] ?? '';
-
-// Processar registro de inventário
 if ($action == 'registrar_inventario') {
     try {
         $produto_id = $_POST['produto_id'];
@@ -31,6 +28,8 @@ if ($action == 'registrar_inventario') {
         exit();
     }
 }
+
+require_once '../../includes/header.php';
 
 // Buscar produtos ativos
 $query_produtos = "SELECT p.*, c.nome as categoria_nome 

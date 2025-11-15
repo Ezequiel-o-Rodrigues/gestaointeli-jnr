@@ -359,6 +359,41 @@ class Relatorios {
         return html;
     }
 
+    criarTabelaProdutos(dados) {
+        if (!Array.isArray(dados) || dados.length === 0) {
+            return '<div class="sem-dados">Nenhum produto encontrado no período selecionado</div>';
+        }
+
+        let html = `<h3>📊 Produtos Mais Vendidos</h3>
+                   <div class="table-responsive">
+                   <table class="table">
+                   <thead>
+                   <tr><th>Produto</th><th>Categoria</th><th>Quantidade Vendida</th><th>Valor Total</th><th>Preço Unitário</th></tr>
+                   </thead><tbody>`;
+
+        dados.forEach(item => {
+            html += `<tr>
+                    <td><strong>${item.produto_nome}</strong></td>
+                    <td>${item.categoria_nome}</td>
+                    <td>${item.total_vendido}</td>
+                    <td>${this.formatarMoeda(item.valor_total)}</td>
+                    <td>${this.formatarMoeda(item.preco_unitario)}</td>
+                    </tr>`;
+        });
+
+        const totalQuantidade = dados.reduce((sum, item) => sum + parseInt(item.total_vendido || 0), 0);
+        const totalValor = dados.reduce((sum, item) => sum + parseFloat(item.valor_total || 0), 0);
+
+        html += `<tr class="total-row">
+                <td colspan="2"><strong>Total</strong></td>
+                <td><strong>${totalQuantidade}</strong></td>
+                <td><strong>${this.formatarMoeda(totalValor)}</strong></td>
+                <td></td>
+                </tr>`;
+        html += `</tbody></table></div>`;
+        return html;
+    }
+
     criarTabelaAnaliseEstoque(dados, totais, periodo) {
     if (!Array.isArray(dados) || dados.length === 0) {
         return '<div class="sem-dados">Nenhum dado encontrado para análise de estoque no período selecionado</div>';
