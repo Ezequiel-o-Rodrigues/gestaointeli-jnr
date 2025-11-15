@@ -499,7 +499,14 @@ foreach ($produtos as $produto) {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <!-- Estoque Manager -->
-<script src="/modules/estoque/js/estoque-manager.js"></script>
+<script src="/modules/estoque/js/estoque-manager-fixed.js?v=<?= time() ?>"></script>
+
+<script>
+// Garantir que o estoqueManager use os caminhos corretos
+if (window.estoqueManager) {
+    window.estoqueManager.apiUrl = '/api';
+}
+</script>
 
 <script>
 // Funções para Inventário Físico

@@ -1,7 +1,7 @@
 <?php
 // criar_comanda.php - Módulo de Caixa
 
-$base_path = '/gestaointeli-jnr/';
+$base_path = '/';
 require_once __DIR__ . '/../../config/database.php';
 
 if (session_status() === PHP_SESSION_NONE) {

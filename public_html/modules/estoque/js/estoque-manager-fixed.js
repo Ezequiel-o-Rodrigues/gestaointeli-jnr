@@ -4,6 +4,9 @@ class EstoqueManager {
         this.baseUrl = '';
         this.apiUrl = '/api';
         this.modalInitialized = false;
+        
+        // Log para debug
+        console.log('[EstoqueManager] Inicializado com apiUrl:', this.apiUrl);
     }
 
     init() {
@@ -25,14 +28,12 @@ class EstoqueManager {
 
     initializeModals() {
         this.log('Inicializando modais');
-        // Modais são inicializados pelo Bootstrap automaticamente
         this.modalInitialized = true;
     }
 
     setupEventListeners() {
         this.log('Configurando event listeners');
         
-        // Formulários - usando event delegation para garantir funcionamento
         document.addEventListener('submit', (e) => {
             if (e.target.id === 'entryForm') {
                 e.preventDefault();
@@ -47,15 +48,12 @@ class EstoqueManager {
 
     loadInitialData() {
         this.log('Carregando dados iniciais');
-        // Dados já carregados via PHP
     }
 
-    // ========== MODAIS ==========
     showEntryModal(productId = null) {
         this.log('Abrindo modal de entrada', { productId });
         
         try {
-            // Resetar formulário
             const form = document.getElementById('entryForm');
             if (form) form.reset();
             
@@ -122,12 +120,14 @@ class EstoqueManager {
         }
     }
 
-    // ========== OPERAÇÕES DE PRODUTO ==========
     async loadProductData(productId) {
         this.log('Carregando dados do produto', { productId });
         
         try {
-            const response = await fetch(`${this.apiUrl}/produto_info.php?id=${productId}`);
+            const url = `${this.apiUrl}/produto_info.php?id=${productId}`;
+            console.log('[EstoqueManager] URL para carregar produto:', url);
+            
+            const response = await fetch(url);
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
@@ -136,7 +136,6 @@ class EstoqueManager {
             const product = await response.json();
             this.log('Dados do produto carregados', product);
 
-            // Preencher formulário com verificações
             this.setFormValue('productId', product.id);
             this.setFormValue('productName', product.nome);
             this.setFormValue('productCategory', product.categoria_id);
@@ -154,7 +153,8 @@ class EstoqueManager {
         this.log('Carregando produto para entrada', { productId });
         
         try {
-            const response = await fetch(`${this.apiUrl}/produto_info.php?id=${productId}`);
+            const url = `${this.apiUrl}/produto_info.php?id=${productId}`;
+            const response = await fetch(url);
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
@@ -172,7 +172,6 @@ class EstoqueManager {
         }
     }
 
-    // ========== UTILITÁRIOS DE FORMULÁRIO ==========
     setFormValue(elementId, value) {
         const element = document.getElementById(elementId);
         if (element) {
@@ -206,7 +205,6 @@ class EstoqueManager {
 
             this.log('Dados do formulário', formData);
 
-            // Validação básica
             if (!formData.nome || !formData.categoria_id) {
                 throw new Error('Preencha todos os campos obrigatórios');
             }
@@ -220,7 +218,10 @@ class EstoqueManager {
             button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
             button.disabled = true;
 
-            const response = await fetch(`${this.apiUrl}/salvar_produto.php`, {
+            const url = `${this.apiUrl}/salvar_produto.php`;
+            console.log('[EstoqueManager] URL para salvar produto:', url);
+
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -228,7 +229,7 @@ class EstoqueManager {
                 body: JSON.stringify(formData)
             });
 
-            this.log('Resposta da API', { status: response.status });
+            this.log('Resposta da API', { status: response.status, url: response.url });
 
             const result = await response.json();
             this.log('Resultado do salvamento', result);
@@ -351,7 +352,6 @@ class EstoqueManager {
         }
     }
 
-    // ========== FILTROS ==========
     filterProducts() {
         const categorySelects = document.querySelectorAll('[onchange="estoqueManager.filterProducts()"]');
         const searchInput = document.querySelector('[onkeyup="estoqueManager.filterProducts()"]');
@@ -379,7 +379,6 @@ class EstoqueManager {
         });
     }
 
-    // ========== UTILITÁRIOS ==========
     editProduct(productId) {
         this.log('Editando produto', { productId });
         this.showProductModal(productId);
@@ -396,7 +395,6 @@ class EstoqueManager {
     showAlert(message, type = 'info') {
         this.log(`Exibindo alerta: ${message}`, { type });
         
-        // Usar alert simples por enquanto
         if (type === 'error') {
             alert('❌ ' + message);
         } else if (type === 'success') {
@@ -406,10 +404,8 @@ class EstoqueManager {
         }
     }
 
-       // NOVA FUNÇÃO: Abrir modal de inventário para produto específico
     showInventoryModal(productId = null) {
         if (productId) {
-            // Preencher automaticamente o produto no modal de inventário
             const produtoSelect = document.getElementById('produto_id');
             if (produtoSelect) {
                 produtoSelect.value = productId;
@@ -424,20 +420,16 @@ class EstoqueManager {
         }
     }
 
-    // Função utilitária para trigger de eventos
     triggerEvent(element, eventName) {
         const event = new Event(eventName, { bubbles: true });
         element.dispatchEvent(event);
     }
-
 }
 
-// Adicionar função global para inventário
 function abrirModalInventarioProduto(produtoId) {
     if (window.estoqueManager) {
         window.estoqueManager.showInventoryModal(produtoId);
     }
 }
 
-// Instância global
 const estoqueManager = new EstoqueManager();

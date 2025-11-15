@@ -1,6 +1,6 @@
 <?php
 class PathConfig {
-    // Configurações para Hostinger (raiz do site)
+    // Configurações para subdomínio (raiz)
     const BASE_URL = '';
     const BASE_DIR = __DIR__ . '/../';
     

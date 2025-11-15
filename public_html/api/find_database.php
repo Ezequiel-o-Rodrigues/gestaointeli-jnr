@@ -6,7 +6,7 @@ $locations = [
     __DIR__ . '/includes/database.php', 
     __DIR__ . '/database.php',
     __DIR__ . '/../config/database.php',
-    'C:/xampp/htdocs/gestaointeli-jnr/config/database.php'
+    'C:/xampp/htdocs/gestaointeli-jnr/public_html/config/database.php'
 ];
 
 foreach ($locations as $location) {

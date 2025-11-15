@@ -1,5 +1,5 @@
 <?php
-// Configuração para Hostinger (raiz do site)
+// Configuração para subdomínio (raiz)
 $base_path = '/';
 
 // Usar caminhos absolutos com __DIR__

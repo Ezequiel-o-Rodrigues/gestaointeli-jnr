@@ -22,7 +22,7 @@ class Relatorios {
 
     async carregarMetricasPerdas() {
         try {
-            const response = await fetch('../../api/relatorio_metricas_perdas.php');
+            const response = await fetch('/api/relatorio_metricas_perdas.php');
             const dados = await response.json();
 
             if (dados.success) {
@@ -165,7 +165,7 @@ class Relatorios {
 
     async carregarVendasUltimos7Dias() {
         try {
-            const response = await fetch('../../api/relatorio_vendas_7dias.php');
+            const response = await fetch('/api/relatorio_vendas_7dias.php');
             const dados = await response.json();
 
             if (dados.success && this.graficoVendas) {
@@ -180,7 +180,7 @@ class Relatorios {
 
     async carregarTopCategorias() {
         try {
-            const response = await fetch('../../api/relatorio_top_categorias.php');
+            const response = await fetch('/api/relatorio_top_categorias.php');
             const dados = await response.json();
 
             if (dados.success && this.graficoCategorias) {
@@ -195,7 +195,7 @@ class Relatorios {
 
     async carregarVendasMensais() {
         try {
-            const response = await fetch('../../api/relatorio_vendas_mensais.php');
+            const response = await fetch('/api/relatorio_vendas_mensais.php');
             const dados = await response.json();
 
             if (dados.success && this.graficoMensal) {
@@ -210,7 +210,7 @@ class Relatorios {
 
     async carregarAlertasPerda() {
         try {
-            const response = await fetch('../../api/relatorio_alertas_perda.php');
+            const response = await fetch('/api/relatorio_alertas_perda.php');
             const dados = await response.json();
 
             if (dados.success) {
@@ -263,14 +263,14 @@ class Relatorios {
 
         switch(tipoRelatorio) {
             case 'vendas':
-                url = '../../api/relatorio_vendas_periodo.php';
+                url = '/api/relatorio_vendas_periodo.php';
                 params += '&tipo=diario';
                 break;
             case 'produtos':
-                url = '../../api/relatorio_produtos_vendidos.php';
+                url = '/api/relatorio_produtos_vendidos.php';
                 break;
             case 'analise_estoque':
-                url = '../../api/relatorio_analise_estoque.php';
+                url = '/api/relatorio_analise_estoque.php';
                 const categoria = document.getElementById('filtro-categoria')?.value;
                 const valorMinimo = document.getElementById('filtro-valor-minimo')?.value;
                 const tipoFiltro = document.getElementById('filtro-tipo')?.value;
