@@ -1,7 +1,17 @@
 <?php
 // api/imprimir_comprovante.php
-require_once __DIR__ . '/../config/database.php';
+// VERSÃO SIMPLIFICADA - SEM GORJETA - CACHE BUSTING
 
+// HEADERS para evitar cache
+header("Cache-Control: no-cache, no-store, must-revalidate");
+header("Pragma: no-cache");
+header("Expires: 0");
+header('Content-Type: application/json');
+
+// DEBUG - Verificar se nova versão está rodando
+error_log("🔄 NOVA VERSÃO SIMPLIFICADA EXECUTADA - " . date('Y-m-d H:i:s'));
+
+require_once __DIR__ . '/../config/database.php';
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

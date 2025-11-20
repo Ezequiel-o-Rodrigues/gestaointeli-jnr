@@ -48,6 +48,7 @@ body {
     background: #34495e;
     color: white;
     text-align: center;
+    align-items: end;
     padding: 1rem 0;
     margin-top: 2rem;
 }

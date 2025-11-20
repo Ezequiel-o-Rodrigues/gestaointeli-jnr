@@ -1,4 +1,6 @@
 <?php
+// Configurar timezone do PHP para Brasília
+date_default_timezone_set('America/Sao_Paulo');
 require_once __DIR__ . '/config/auth.php';
 
 // Se não estiver logado, redireciona para login

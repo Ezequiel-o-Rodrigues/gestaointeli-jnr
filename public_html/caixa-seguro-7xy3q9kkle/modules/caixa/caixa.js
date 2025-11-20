@@ -822,41 +822,51 @@ if (window.CaixaSystemAlreadyLoaded) {
         }
     }
     
-    async imprimirComprovante(comprovanteId) {
-        try {
-            console.log('Imprimindo comprovante:', comprovanteId);
-            
-            const response = await fetch('/api/imprimir_comprovante.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    comprovante_id: comprovanteId
-                })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                // Tentar impressão via Web USB se disponível
-                if (window.impressaoService && typeof window.impressaoService.imprimirComprovante === 'function') {
-                    await window.impressaoService.imprimirComprovante(data.conteudo);
-                } else {
-                    // Fallback: mostrar conteúdo em nova janela para impressão
-                    this.mostrarComprovanteParaImpressao(data.conteudo);
-                }
+    // No caixa.js, atualize o método imprimirComprovante:
+
+async imprimirComprovante(comprovanteId) {
+    try {
+        console.log('Solicitando comprovante:', comprovanteId);
+        
+        const response = await fetch('/api/imprimir_simples.php', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({comprovante_id: comprovanteId})
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // DELEGAR COMPLETAMENTE PARA O SERVIÇO DE IMPRESSÃO
+            if (window.impressaoService) {
+                const resultado = await window.impressaoService.imprimirComprovante(data.conteudo);
                 
-                this.mostrarToast('Comprovante enviado para impressão', 'success');
+                if (resultado.success) {
+                    if (resultado.usadoUSB) {
+                        this.mostrarToast('✅ Comprovante impresso!', 'success');
+                    } else if (resultado.fallback) {
+                        this.mostrarToast('📄 Comprovante aberto para impressão', 'success');
+                    } else if (resultado.download) {
+                        this.mostrarToast('📥 Comprovante baixado - imprima manualmente', 'info');
+                    }
+                } else {
+                    this.mostrarToast('❌ ' + resultado.message, 'error');
+                }
             } else {
-                this.mostrarToast('Erro ao imprimir: ' + data.message, 'error');
+                // Fallback direto se o serviço não carregou
+                this.mostrarComprovanteParaImpressao(data.conteudo);
             }
-        } catch (error) {
-            console.error('Erro ao imprimir comprovante:', error);
-            this.mostrarToast('Erro ao imprimir comprovante', 'error');
+        } else {
+            this.mostrarToast('Erro: ' + data.message, 'error');
         }
+    } catch (error) {
+        console.error('Erro geral de impressão:', error);
+        this.mostrarToast('Erro no sistema de impressão', 'error');
+    } finally {
+        // Fechar modal independente do resultado
+        this.fecharModalComprovante();
     }
-    
+}
     mostrarComprovanteParaImpressao(conteudo) {
         // Converter comandos ESC/POS para texto legível
         const textoLimpo = conteudo

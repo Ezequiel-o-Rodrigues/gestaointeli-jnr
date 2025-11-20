@@ -870,5 +870,46 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     </script>
+    
+    <script>
+// SISTEMA DE EMERGÊNCIA - Garante funcionamento mesmo com versão antiga
+console.log('🔧 Verificando serviço de impressão...');
+
+// Aguardar carregamento completo
+setTimeout(function() {
+    // Se o serviço não existe ou tem métodos USB, substituir
+    if (!window.impressaoService || window.impressaoService.conectarImpressora) {
+        console.log('🔄 Substituindo serviço problemático...');
+        
+        // Remover serviço antigo
+        if (window.impressaoService) {
+            delete window.impressaoService;
+        }
+        
+        // Criar serviço novo
+        window.impressaoService = {
+            imprimirComprovante: function(conteudo) {
+                console.log('🎯 Imprimindo (emergência)...');
+                try {
+                    const texto = conteudo.replace(/\x1B\[[0-9;]*[A-Za-z]/g, '').replace(/\x0A/g, '\n');
+                    const janela = window.open('', '_blank', 'width=400,height=600');
+                    if (janela) {
+                        janela.document.write('<h3>Espetinho do Junior</h3><pre>' + texto + '</pre><button onclick="window.print()">Imprimir</button>');
+                        janela.document.close();
+                    }
+                    return Promise.resolve({success: true, message: 'Comprovante aberto!'});
+                } catch (error) {
+                    return Promise.resolve({success: false, message: 'Erro: ' + error.message});
+                }
+            }
+        };
+        
+        console.log('✅ Serviço de emergência ativado!');
+    } else {
+        console.log('✅ Serviço OK!');
+    }
+}, 1000);
+</script>
+    
 </body>
 </html>
