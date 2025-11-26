@@ -6,7 +6,7 @@ error_log("=== INICIANDO LOGIN ===");
 
 // Se já estiver logado, redireciona para página principal
 if (isset($_SESSION['usuario_logado']) && $_SESSION['usuario_logado'] === true) {
-    header('Location: /');
+    header('Location: /gestaointeli-jnr/public_html/caixa-seguro-7xy3q9kkle/');
     exit;
 }
 
@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     error_log("SESSION após login: " . print_r($_SESSION, true));
                     error_log("✅ Login bem-sucedido! Redirecionando...");
                     
-                    header('Location: /');
+                    header('Location: /gestaointeli-jnr/public_html/caixa-seguro-7xy3q9kkle/');
                     exit;
                 } else {
                     error_log("❌ SENHA INVÁLIDA!");

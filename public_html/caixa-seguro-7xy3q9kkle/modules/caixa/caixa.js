@@ -77,7 +77,7 @@ if (window.CaixaSystemAlreadyLoaded) {
             this.mostrarLoadingProdutos(true);
             
             // AJUSTE: tentar endpoint API padrão (se houver) — se não existir, o código atual do servidor renderiza produtos em PHP
-            const response = await fetch('/api/produtos_categoria.php');
+            const response = await fetch('../../api/produtos_categoria.php');
             const data = await response.json();
             
             if (data.success && data.produtos) {
@@ -147,7 +147,7 @@ if (window.CaixaSystemAlreadyLoaded) {
             this.carregando = true;
             
             // Usar endpoint PHP do projeto (sem garçom)
-            const response = await fetch('/api/nova_comanda.php', {
+            const response = await fetch('../../api/nova_comanda.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
             });
@@ -214,17 +214,11 @@ if (window.CaixaSystemAlreadyLoaded) {
     
     async adicionarItem(produtoId, quantidade = 1) {
         if (!this.comandaAtual) {
-            // Perguntar ao usuário se quer criar uma comanda sem garçom
-            const criar = confirm('Nenhuma comanda aberta. Deseja criar uma comanda sem garçom?');
-            if (!criar) return;
-
-            // Criar comanda automaticamente
-            await this.novaComanda();
-
-            if (!this.comandaAtual || !this.comandaAtual.id) {
-                this.mostrarToast('Não foi possível criar a comanda', 'error');
-                return;
-            }
+            // Armazenar produto para adicionar após criar comanda
+            window.produtoParaAdicionar = { id: produtoId, quantidade: quantidade };
+            // Abrir modal de seleção de garçom automaticamente
+            abrirModalGarcom();
+            return;
         }
         
         if (this.carregando) return;
@@ -233,7 +227,7 @@ if (window.CaixaSystemAlreadyLoaded) {
             this.carregando = true;
             
             // Usar endpoint PHP instalado no projeto
-            const response = await fetch('/api/adicionar_item.php', {
+            const response = await fetch('../../api/adicionar_item.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -266,7 +260,7 @@ if (window.CaixaSystemAlreadyLoaded) {
         
         try {
             // Usar endpoint PHP do projeto
-            const response = await fetch(`/api/itens_comanda.php?comanda_id=${this.comandaAtual.id}`);
+            const response = await fetch(`../../api/itens_comanda.php?comanda_id=${this.comandaAtual.id}`);
             const data = await response.json();
 
             // DEBUG: log para diagnóstico
@@ -419,7 +413,7 @@ if (window.CaixaSystemAlreadyLoaded) {
         try {
             this.carregando = true;
             
-            const response = await fetch('/api/adicionar_item.php', {
+            const response = await fetch('../../api/adicionar_item.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -464,7 +458,7 @@ if (window.CaixaSystemAlreadyLoaded) {
             console.log('Enviando requisição para remover item:', itemId, 'de comanda:', this.comandaAtual.id);
             
             // Usar endpoint PHP do projeto (API espera comanda_id E item_id)
-            const response = await fetch('/api/remover_item.php', {
+            const response = await fetch('../../api/remover_item.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -530,7 +524,7 @@ if (window.CaixaSystemAlreadyLoaded) {
             console.log('Enviando requisição para finalizar comanda:', this.comandaAtual.id);
             
             // Usar endpoint PHP do projeto
-            const response = await fetch('/api/finalizar_comanda.php', {
+            const response = await fetch('../../api/finalizar_comanda.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -588,7 +582,7 @@ if (window.CaixaSystemAlreadyLoaded) {
             console.log('Validando estoque para comanda:', this.comandaAtual.id);
             
             // Usar endpoint PHP do projeto
-            const response = await fetch('/api/verificar_estoque.php', {
+            const response = await fetch('../../api/verificar_estoque.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -828,7 +822,7 @@ async imprimirComprovante(comprovanteId) {
     try {
         console.log('Solicitando comprovante:', comprovanteId);
         
-        const response = await fetch('/api/imprimir_simples.php', {
+        const response = await fetch('../../api/imprimir_comprovante.php', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({comprovante_id: comprovanteId})

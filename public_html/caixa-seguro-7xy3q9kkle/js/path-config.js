@@ -1,15 +1,8 @@
 // 📁 js/path-config.js
 class PathConfig {
     static getBasePath() {
-        // Detecta o caminho base automaticamente
-        const path = window.location.pathname;
-        if (path.includes('/modules/')) {
-            return path.split('/modules/')[0];
-        }
-        if (path.includes('/gestaointeli-jnr/')) {
-            return '/gestaointeli-jnr';
-        }
-        return '';
+        // Configuração fixa para localhost XAMPP
+        return '/gestaointeli-jnr/public_html/caixa-seguro-7xy3q9kkle';
     }
 
     static url(path = '') {

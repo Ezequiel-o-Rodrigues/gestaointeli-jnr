@@ -49,7 +49,7 @@ class Estoque {
 
     async abrirModalEntrada(produtoId) {
         try {
-            const response = await fetch(`/api/produto_info.php?id=${produtoId}`);
+            const response = await fetch(`../../api/produto_info.php?id=${produtoId}`);
             const produto = await response.json();
             
             document.getElementById('produto_id_entrada').value = produto.id;
@@ -71,7 +71,7 @@ class Estoque {
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando...';
             btn.disabled = true;
 
-            const response = await fetch('/api/registrar_entrada.php', {
+            const response = await fetch('../../api/registrar_entrada.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
@@ -104,7 +104,7 @@ class Estoque {
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
             btn.disabled = true;
 
-            const response = await fetch('/api/salvar_produto.php', {
+            const response = await fetch('../../api/salvar_produto.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
@@ -137,7 +137,7 @@ class Estoque {
         button.disabled = true;
 
         try {
-            const response = await fetch('/api/toggle_produto.php', {
+            const response = await fetch('../../api/toggle_produto.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -176,7 +176,7 @@ class Estoque {
 
     async editarProduto(produtoId) {
         try {
-            const response = await fetch(`/api/produto_info.php?id=${produtoId}`);
+            const response = await fetch(`../../api/produto_info.php?id=${produtoId}`);
             const produto = await response.json();
             
             document.getElementById('produtoId').value = produto.id;

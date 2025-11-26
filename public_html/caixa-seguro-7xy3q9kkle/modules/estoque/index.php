@@ -106,16 +106,21 @@ foreach ($produtos as $produto) {
     <?php if ($alertas_count > 0): ?>
     <div class="row mb-4">
         <div class="col-12">
-            <div class="alert alert-warning">
+            <div class="alert alert-warning" id="alertaEstoque">
                 <div class="d-flex justify-content-between align-items-center">
                     <h5 class="alert-heading mb-0">
                         <i class="fas fa-exclamation-triangle"></i> 
                         Alertas de Estoque (<?= $alertas_count ?>)
                     </h5>
-                    <span class="badge bg-danger"><?= $alertas_count ?></span>
+                    <div>
+                        <span class="badge bg-danger"><?= $alertas_count ?></span>
+                        <button class="btn btn-sm btn-dark ms-2" onclick="toggleAlertaEstoque()" id="btnToggleAlerta" title="Minimizar alertas">
+                            ➖
+                        </button>
+                    </div>
                 </div>
                 <hr>
-                <div class="row">
+                <div class="row" id="conteudoAlerta">
                     <?php if (!empty($alertas_criticos)): ?>
                     <div class="col-md-6">
                         <h6><i class="fas fa-skull-crossbones text-danger"></i> Crítico</h6>
@@ -495,17 +500,41 @@ foreach ($produtos as $produto) {
     </div>
 </div>
 
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <!-- Estoque Manager -->
-<script src="/modules/estoque/js/estoque-manager-fixed.js?v=<?= time() ?>"></script>
+<script src="/gestaointeli-jnr/public_html/caixa-seguro-7xy3q9kkle/modules/estoque/js/estoque-manager-fixed.js?v=<?= time() ?>"></script>
 
 <script>
 // Garantir que o estoqueManager use os caminhos corretos
 if (window.estoqueManager) {
-    window.estoqueManager.apiUrl = '/api';
+    window.estoqueManager.apiUrl = '/gestaointeli-jnr/public_html/caixa-seguro-7xy3q9kkle/api';
 }
+
+// Configurar caminho base antes de carregar o script
+window.ESTOQUE_API_BASE = '/gestaointeli-jnr/public_html/caixa-seguro-7xy3q9kkle/api';
+
+// Sobrescrever função problemática temporariamente
+setTimeout(() => {
+    if (window.estoqueManager && window.estoqueManager.loadProductForEntry) {
+        window.estoqueManager.loadProductForEntry = async function(productId) {
+            try {
+                const response = await fetch(`test_api.php?id=${productId}`);
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('entryProductName').textContent = data.produto.nome;
+                    document.getElementById('entryProductId').value = productId;
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+            }
+        };
+    }
+}, 1000);
 </script>
 
 <script>
@@ -673,6 +702,22 @@ document.getElementById('inventarioModal').addEventListener('show.bs.modal', fun
         document.getElementById('pesquisaProduto').focus();
     }, 500);
 });
+
+// Função para minimizar/expandir alerta de estoque
+function toggleAlertaEstoque() {
+    const conteudo = document.getElementById('conteudoAlerta');
+    const botao = document.getElementById('btnToggleAlerta');
+    
+    if (conteudo.style.display === 'none') {
+        conteudo.style.display = 'block';
+        botao.innerHTML = '➖';
+        botao.title = 'Minimizar alertas';
+    } else {
+        conteudo.style.display = 'none';
+        botao.innerHTML = '➕';
+        botao.title = 'Ver todos os alertas';
+    }
+}
 
 // Inicializar quando DOM estiver pronto
 document.addEventListener('DOMContentLoaded', function() {

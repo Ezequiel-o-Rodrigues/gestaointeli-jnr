@@ -3,11 +3,21 @@
 date_default_timezone_set('America/Sao_Paulo');
 require_once __DIR__ . '/config/auth.php';
 
+// DEBUG: Verificar estado da sessão
+error_log("=== INDEX.PHP - VERIFICAÇÃO DE SESSÃO ===");
+error_log("Session ID: " . session_id());
+error_log("usuario_logado: " . (isset($_SESSION['usuario_logado']) ? ($_SESSION['usuario_logado'] ? 'true' : 'false') : 'não definido'));
+error_log("usuario_nome: " . ($_SESSION['usuario_nome'] ?? 'não definido'));
+error_log("last_activity: " . (isset($_SESSION['last_activity']) ? date('Y-m-d H:i:s', $_SESSION['last_activity']) : 'não definido'));
+
 // Se não estiver logado, redireciona para login
 if (!isset($_SESSION['usuario_logado']) || $_SESSION['usuario_logado'] !== true) {
+    error_log("❌ Usuário não logado - redirecionando para login");
     header('Location: login.php');
     exit;
 }
+
+error_log("✅ Usuário logado - continuando para página principal");
 
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/header.php';

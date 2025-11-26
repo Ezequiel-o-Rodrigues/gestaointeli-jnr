@@ -83,8 +83,6 @@ function gerarComprovanteLimpo($comanda) {
     $linhas = [];
     
     // Cabeçalho SIMPLES
-    $linhas[] = "ESPETINHO DO JUNIOR";
-    $linhas[] = "-------------------------------";
     $linhas[] = "Comanda: #" . $comanda['comanda_id'];
     $linhas[] = "Data: " . date('d/m/Y H:i', strtotime($comanda['data_venda']));
     

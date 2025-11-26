@@ -22,7 +22,7 @@ class Relatorios {
 
     async carregarMetricasPerdas() {
         try {
-            const response = await fetch('/api/relatorio_metricas_perdas.php');
+            const response = await fetch('../../api/relatorio_metricas_perdas.php');
             const dados = await response.json();
 
             if (dados.success) {
@@ -165,7 +165,7 @@ class Relatorios {
 
     async carregarVendasUltimos7Dias() {
         try {
-            const response = await fetch('/api/relatorio_vendas_7dias.php');
+            const response = await fetch('../../api/relatorio_vendas_7dias.php');
             const dados = await response.json();
 
             if (dados.success && this.graficoVendas) {
@@ -180,7 +180,7 @@ class Relatorios {
 
     async carregarTopCategorias() {
         try {
-            const response = await fetch('/api/relatorio_top_categorias.php');
+            const response = await fetch('../../api/relatorio_top_categorias.php');
             const dados = await response.json();
 
             if (dados.success && this.graficoCategorias) {
@@ -195,7 +195,7 @@ class Relatorios {
 
     async carregarVendasMensais() {
         try {
-            const response = await fetch('/api/relatorio_vendas_mensais.php');
+            const response = await fetch('../../api/relatorio_vendas_mensais.php');
             const dados = await response.json();
 
             if (dados.success && this.graficoMensal) {
@@ -210,7 +210,7 @@ class Relatorios {
 
     async carregarAlertasPerda() {
         try {
-            const response = await fetch('/api/relatorio_alertas_perda.php');
+            const response = await fetch('../../api/relatorio_alertas_perda.php');
             const dados = await response.json();
 
             if (dados.success) {
@@ -230,20 +230,39 @@ class Relatorios {
             return;
         }
 
-        let html = '<h4>🚨 Alertas de Perda de Estoque</h4>';
+        let html = `
+            <div class="alertas-header">
+                <h4>🚨 Alertas de Perda de Estoque (${alertas.length})</h4>
+                <div class="alertas-actions">
+                    <button class="btn btn-sm btn-outline-primary" onclick="abrirHistoricoPerdas()">
+                        📋 Histórico Completo
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="toggleAlertasPerda()" id="btn-toggle-alertas">
+                        ➖ Minimizar
+                    </button>
+                </div>
+            </div>
+            <div id="alertas-content" class="alertas-content">
+        `;
         
         alertas.forEach(alerta => {
             html += `
-                <div class="alerta-item perda">
-                    <strong>${alerta.nome}</strong> (${alerta.categoria})
-                    <br>
-                    <small>Diferença no estoque: ${alerta.diferenca_estoque} unidades</small>
-                    <br>
-                    <small>Entradas: ${alerta.total_entradas} | Vendidos: ${alerta.total_vendido} | Estoque atual: ${alerta.estoque_atual}</small>
+                <div class="alerta-item perda" data-alerta-id="${alerta.id}">
+                    <div class="alerta-info">
+                        <strong>${alerta.nome}</strong> (${alerta.categoria})
+                        <br>
+                        <small>Diferença: ${alerta.diferenca_estoque} unidades | Valor: ${this.formatarMoeda(alerta.valor_perda || 0)}</small>
+                        <br>
+                        <small>Entradas: ${alerta.total_entradas} | Vendidos: ${alerta.total_vendido} | Atual: ${alerta.estoque_atual}</small>
+                    </div>
+                    <button class="btn btn-sm btn-success" onclick="marcarPerdaVisualizada(${alerta.id})">
+                        ✓ Visualizado
+                    </button>
                 </div>
             `;
         });
 
+        html += '</div>';
         container.innerHTML = html;
     }
 
@@ -263,14 +282,14 @@ class Relatorios {
 
         switch(tipoRelatorio) {
             case 'vendas':
-                url = '/api/relatorio_vendas_periodo.php';
+                url = '../../api/relatorio_vendas_periodo.php';
                 params += '&tipo=diario';
                 break;
             case 'produtos':
-                url = '/api/relatorio_produtos_vendidos.php';
+                url = '../../api/relatorio_produtos_vendidos.php';
                 break;
             case 'analise_estoque':
-                url = '/api/relatorio_analise_estoque.php';
+                url = '../../api/relatorio_analise_estoque.php';
                 const categoria = document.getElementById('filtro-categoria')?.value;
                 const valorMinimo = document.getElementById('filtro-valor-minimo')?.value;
                 const tipoFiltro = document.getElementById('filtro-tipo')?.value;
@@ -642,8 +661,364 @@ class Relatorios {
     }
     
     formatarData(data) {
-    return new Date(data + 'T00:00:00').toLocaleDateString('pt-BR');
-}
+        return new Date(data + 'T00:00:00').toLocaleDateString('pt-BR');
+    }
+
+    async marcarPerdaVisualizada(perdaId) {
+        try {
+            const response = await fetch('../../api/marcar_perda_visualizada.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ perda_id: perdaId })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Remover o alerta da tela
+                const alertaElement = document.querySelector(`[data-alerta-id="${perdaId}"]`);
+                if (alertaElement) {
+                    alertaElement.style.animation = 'fadeOut 0.3s ease';
+                    setTimeout(() => {
+                        alertaElement.remove();
+                        this.verificarAlertasVazios();
+                    }, 300);
+                }
+                
+                this.mostrarToast('Perda marcada como visualizada', 'success');
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (error) {
+            console.error('Erro ao marcar perda:', error);
+            this.mostrarToast('Erro ao marcar perda como visualizada', 'error');
+        }
+    }
+
+    verificarAlertasVazios() {
+        const container = document.getElementById('alertas-perda-container');
+        const alertas = container.querySelectorAll('.alerta-item.perda');
+        
+        if (alertas.length === 0) {
+            container.innerHTML = '<div class="alerta-item sucesso">✅ Todas as perdas foram visualizadas</div>';
+        } else {
+            // Atualizar contador no header
+            const header = container.querySelector('h4');
+            if (header) {
+                header.textContent = `🚨 Alertas de Perda de Estoque (${alertas.length})`;
+            }
+        }
+    }
+
+    async abrirHistoricoPerdas(filtros = {}) {
+        try {
+            let url = '../../api/historico_perdas.php';
+            const params = new URLSearchParams();
+            
+            if (filtros.data_inicio && filtros.data_fim) {
+                params.append('data_inicio', filtros.data_inicio);
+                params.append('data_fim', filtros.data_fim);
+            } else if (filtros.mes_ano) {
+                params.append('mes_ano', filtros.mes_ano);
+            }
+            
+            if (params.toString()) {
+                url += '?' + params.toString();
+            }
+            
+            const response = await fetch(url);
+            const result = await response.json();
+            
+            if (result.success) {
+                this.mostrarModalHistoricoPerdas(result.data, result.filtros);
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (error) {
+            console.error('Erro ao carregar histórico:', error);
+            this.mostrarToast('Erro ao carregar histórico de perdas', 'error');
+        }
+    }
+
+    mostrarModalHistoricoPerdas(perdas, filtros = {}) {
+        const modalHtml = `
+            <div class="modal fade" id="modalHistoricoPerdas" tabindex="-1">
+                <div class="modal-dialog modal-xl">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">📋 Histórico de Perdas de Estoque</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            ${this.criarFiltrosData(filtros)}
+                            <div id="tabela-historico-container">
+                                ${this.criarTabelaHistoricoPerdas(perdas)}
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-primary" onclick="exportarHistoricoPerdas()">
+                                📄 Exportar
+                            </button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remover modal existente se houver
+        const modalExistente = document.getElementById('modalHistoricoPerdas');
+        if (modalExistente) {
+            modalExistente.remove();
+        }
+        
+        // Adicionar novo modal
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Mostrar modal
+        const modal = new bootstrap.Modal(document.getElementById('modalHistoricoPerdas'));
+        modal.show();
+    }
+
+    criarTabelaHistoricoPerdas(perdas) {
+        if (!perdas || perdas.length === 0) {
+            return '<div class="text-center p-4">📊 Nenhuma perda registrada no histórico</div>';
+        }
+
+        let html = `
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Data</th>
+                            <th>Produto</th>
+                            <th>Categoria</th>
+                            <th>Quantidade</th>
+                            <th>Valor</th>
+                            <th>Motivo</th>
+                            <th>Status</th>
+                            <th>Visualizada em</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        perdas.forEach(perda => {
+            const dataIdentificacao = new Date(perda.data_identificacao).toLocaleDateString('pt-BR');
+            const dataVisualizacao = perda.data_visualizacao ? 
+                new Date(perda.data_visualizacao).toLocaleDateString('pt-BR') : '-';
+            const statusClass = perda.visualizada ? 'text-success' : 'text-warning';
+            const statusIcon = perda.visualizada ? '✅' : '⏳';
+            const statusText = perda.visualizada ? 'Visualizada' : 'Pendente';
+
+            html += `
+                <tr>
+                    <td>${dataIdentificacao}</td>
+                    <td><strong>${perda.produto_nome}</strong></td>
+                    <td><span class="badge bg-secondary">${perda.categoria_nome}</span></td>
+                    <td class="text-center">${perda.quantidade_perdida}</td>
+                    <td class="text-end">${this.formatarMoeda(perda.valor_perda)}</td>
+                    <td>${perda.motivo || 'Diferença de inventário'}</td>
+                    <td class="${statusClass}">${statusIcon} ${statusText}</td>
+                    <td>${dataVisualizacao}</td>
+                </tr>
+            `;
+        });
+
+        html += `
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-3">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6>Total de Perdas</h6>
+                                <h4 class="text-danger">${perdas.length}</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6>Valor Total</h6>
+                                <h4 class="text-danger">${this.formatarMoeda(perdas.reduce((sum, p) => sum + parseFloat(p.valor_perda || 0), 0))}</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        return html;
+    }
+
+    toggleAlertasPerda() {
+        const content = document.getElementById('alertas-content');
+        const btn = document.getElementById('btn-toggle-alertas');
+        
+        if (content.style.display === 'none') {
+            content.style.display = 'block';
+            btn.innerHTML = '➖ Minimizar';
+            btn.className = 'btn btn-sm btn-outline-secondary';
+        } else {
+            content.style.display = 'none';
+            btn.innerHTML = '➕ Expandir';
+            btn.className = 'btn btn-sm btn-outline-primary';
+        }
+    }
+
+    criarFiltrosData(filtros = {}) {
+        const hoje = new Date();
+        const mesAtual = hoje.getFullYear() + '-' + String(hoje.getMonth() + 1).padStart(2, '0');
+        
+        return `
+            <div class="filtros-data-container mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">📅 Filtrar por Período</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label">Mês/Ano:</label>
+                                <input type="month" id="filtro-mes-ano" class="form-control" 
+                                       value="${filtros.mes_ano || mesAtual}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Data Início:</label>
+                                <input type="date" id="filtro-data-inicio" class="form-control" 
+                                       value="${filtros.data_inicio || ''}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Data Fim:</label>
+                                <input type="date" id="filtro-data-fim" class="form-control" 
+                                       value="${filtros.data_fim || ''}">
+                            </div>
+                            <div class="col-md-3 d-flex align-items-end">
+                                <div class="btn-group w-100">
+                                    <button class="btn btn-primary" onclick="aplicarFiltroData()">
+                                        🔍 Filtrar
+                                    </button>
+                                    <button class="btn btn-outline-secondary" onclick="limparFiltroData()">
+                                        🗑️ Limpar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                📝 <strong>Dica:</strong> Use "Mês/Ano" para filtros rápidos ou "Data Início/Fim" para períodos específicos
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    async aplicarFiltroData() {
+        const mesAno = document.getElementById('filtro-mes-ano').value;
+        const dataInicio = document.getElementById('filtro-data-inicio').value;
+        const dataFim = document.getElementById('filtro-data-fim').value;
+        
+        let filtros = {};
+        
+        // Priorizar filtro por período específico se ambas as datas estiverem preenchidas
+        if (dataInicio && dataFim) {
+            if (dataInicio > dataFim) {
+                this.mostrarToast('Data de início deve ser anterior à data fim', 'error');
+                return;
+            }
+            filtros = { data_inicio: dataInicio, data_fim: dataFim };
+        } else if (mesAno) {
+            filtros = { mes_ano: mesAno };
+        }
+        
+        // Recarregar dados com filtro
+        try {
+            let url = '../../api/historico_perdas.php';
+            const params = new URLSearchParams();
+            
+            if (filtros.data_inicio && filtros.data_fim) {
+                params.append('data_inicio', filtros.data_inicio);
+                params.append('data_fim', filtros.data_fim);
+            } else if (filtros.mes_ano) {
+                params.append('mes_ano', filtros.mes_ano);
+            }
+            
+            if (params.toString()) {
+                url += '?' + params.toString();
+            }
+            
+            const response = await fetch(url);
+            const result = await response.json();
+            
+            if (result.success) {
+                // Atualizar apenas a tabela
+                const container = document.getElementById('tabela-historico-container');
+                if (container) {
+                    container.innerHTML = this.criarTabelaHistoricoPerdas(result.data);
+                }
+                
+                const totalFiltrado = result.data.length;
+                this.mostrarToast(`Filtro aplicado: ${totalFiltrado} perdas encontradas`, 'success');
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (error) {
+            console.error('Erro ao aplicar filtro:', error);
+            this.mostrarToast('Erro ao aplicar filtro', 'error');
+        }
+    }
+
+    limparFiltroData() {
+        document.getElementById('filtro-mes-ano').value = '';
+        document.getElementById('filtro-data-inicio').value = '';
+        document.getElementById('filtro-data-fim').value = '';
+        
+        // Recarregar todos os dados
+        this.abrirHistoricoPerdas();
+    }
+
+    exportarHistoricoPerdas() {
+        const tabela = document.querySelector('#modalHistoricoPerdas table');
+        if (!tabela) {
+            this.mostrarToast('Nenhuma tabela para exportar', 'error');
+            return;
+        }
+        
+        const html = tabela.outerHTML;
+        const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `historico_perdas_${new Date().toISOString().split('T')[0]}.xls`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        this.mostrarToast('Histórico exportado com sucesso', 'success');
+    }
+
+    mostrarToast(mensagem, tipo = 'info') {
+        // Criar toast simples
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${tipo === 'error' ? 'danger' : tipo === 'success' ? 'success' : 'info'} position-fixed`;
+        toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        toast.innerHTML = `
+            ${mensagem}
+            <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+        `;
+        
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            if (toast.parentElement) {
+                toast.remove();
+            }
+        }, 5000);
+    }
 }
 function aplicarFiltrosAvancados() {
     relatorios.gerarRelatorio();
@@ -907,6 +1282,92 @@ style.textContent = `
         border: 2px solid #27ae60 !important;
     }
 
+    /* ESTILOS PARA ALERTAS DE PERDA */
+    .alertas-header {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        margin-bottom: 1rem !important;
+        padding-bottom: 0.5rem !important;
+        border-bottom: 2px solid #e74c3c !important;
+    }
+
+    .alertas-actions {
+        display: flex !important;
+        gap: 0.5rem !important;
+    }
+
+    .alertas-content {
+        transition: all 0.3s ease !important;
+    }
+
+    .alerta-item {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        padding: 1rem !important;
+        margin-bottom: 0.5rem !important;
+        border-radius: 8px !important;
+        border-left: 4px solid #e74c3c !important;
+    }
+
+    .alerta-item.perda {
+        background: #fff5f5 !important;
+        border-left-color: #e74c3c !important;
+    }
+
+    .alerta-item.sucesso {
+        background: #f0fff4 !important;
+        border-left-color: #27ae60 !important;
+        justify-content: center !important;
+    }
+
+    .alerta-info {
+        flex: 1 !important;
+    }
+
+    @keyframes fadeOut {
+        from { opacity: 1; transform: translateX(0); }
+        to { opacity: 0; transform: translateX(100%); }
+    }
+
+    /* ESTILOS PARA FILTROS DE DATA */
+    .filtros-data-container .card {
+        border: 1px solid #dee2e6 !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+    }
+
+    .filtros-data-container .card-header {
+        background: linear-gradient(135deg, #667eea, #764ba2) !important;
+        color: white !important;
+        border-bottom: none !important;
+    }
+
+    .filtros-data-container .form-control {
+        border: 1px solid #ced4da !important;
+        border-radius: 6px !important;
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out !important;
+    }
+
+    .filtros-data-container .form-control:focus {
+        border-color: #667eea !important;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25) !important;
+    }
+
+    .filtros-data-container .btn-group .btn {
+        border-radius: 6px !important;
+    }
+
+    .filtros-data-container .btn-group .btn:first-child {
+        border-top-right-radius: 0 !important;
+        border-bottom-right-radius: 0 !important;
+    }
+
+    .filtros-data-container .btn-group .btn:last-child {
+        border-top-left-radius: 0 !important;
+        border-bottom-left-radius: 0 !important;
+    }
+
     /* RESPONSIVIDADE */
     @media (max-width: 1200px) {
         .table-analise-estoque {
@@ -921,6 +1382,29 @@ style.textContent = `
         .header-text {
             font-size: 0.85rem !important;
         }
+
+        .alertas-header {
+            flex-direction: column !important;
+            gap: 0.5rem !important;
+        }
+
+        .alerta-item {
+            flex-direction: column !important;
+            gap: 0.5rem !important;
+            text-align: center !important;
+        }
+
+        .filtros-data-container .row {
+            flex-direction: column !important;
+        }
+
+        .filtros-data-container .col-md-3 {
+            margin-bottom: 1rem !important;
+        }
+
+        .filtros-data-container .btn-group {
+            flex-direction: row !important;
+        }
     }
 `;
 document.head.appendChild(style);
@@ -932,4 +1416,28 @@ function gerarRelatorio() {
 
 function exportarRelatorio() {
     relatorios.exportarRelatorio();
+}
+
+function marcarPerdaVisualizada(perdaId) {
+    relatorios.marcarPerdaVisualizada(perdaId);
+}
+
+function abrirHistoricoPerdas() {
+    relatorios.abrirHistoricoPerdas();
+}
+
+function toggleAlertasPerda() {
+    relatorios.toggleAlertasPerda();
+}
+
+function aplicarFiltroData() {
+    relatorios.aplicarFiltroData();
+}
+
+function limparFiltroData() {
+    relatorios.limparFiltroData();
+}
+
+function exportarHistoricoPerdas() {
+    relatorios.exportarHistoricoPerdas();
 }

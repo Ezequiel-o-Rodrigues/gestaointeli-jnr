@@ -1,9 +1,9 @@
 <?php
 class Database {
     private $host = "localhost";
-    private $db_name = "u903648047_sis_caixa";
-    private $username = "u903648047_juniior";
-    private $password = "Ezequiel_2014";
+    private $db_name = "sistema_restaurante";
+    private $username = "root";
+    private $password = "";
     public $conn;
     
     public function getConnection() {

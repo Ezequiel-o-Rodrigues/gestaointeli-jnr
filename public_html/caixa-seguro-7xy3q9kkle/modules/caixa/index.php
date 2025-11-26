@@ -1,15 +1,22 @@
 <?php
-// Configuração para subdomínio (raiz)
-$base_path = '/';
+// Configuração para localhost XAMPP
+$base_path = '/gestaointeli-jnr/public_html/caixa-seguro-7xy3q9kkle/';
+
+// Incluir autenticação primeiro
+require_once __DIR__ . '/../../config/auth.php';
+
+// Verificar se o usuário está logado
+if (!isset($_SESSION['usuario_logado']) || $_SESSION['usuario_logado'] !== true) {
+    error_log("❌ Módulo Caixa - Usuário não logado - redirecionando");
+    header('Location: ../../login.php');
+    exit;
+}
+
+error_log("✅ Módulo Caixa - Usuário logado: " . $_SESSION['usuario_nome']);
 
 // Usar caminhos absolutos com __DIR__
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../includes/functions.php';
-
-// Iniciar a sessão se necessário
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
 
 // INICIALIZAR VARIÁVEIS COM VALORES PADRÃO
 $comanda_aberta = null;
@@ -524,7 +531,7 @@ try {
     <!-- CABEÇALHO -->
     <div class="mini-header">
         <h1>💰 Caixa Rápido</h1>
-        <a href="<?php echo $base_path; ?>index.php" class="btn-voltar">🏠 Início</a>
+        <a href="<?php echo $base_path; ?>" class="btn-voltar">🏠 Início</a>
     </div>
 
     <!-- COMANDA HORIZONTAL - NOVA POSIÇÃO -->
@@ -643,7 +650,11 @@ try {
                 <?php endif; ?>
             </div>
 
-            <div style="border-top: 1px solid #ecf0f1; padding-top: 15px;">
+            <div style="border-top: 1px solid #ecf0f1; padding-top: 15px; display: flex; gap: 15px; justify-content: center;">
+                <button onclick="criarComandaCaixa()" 
+                        style="background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                    💰 Caixa
+                </button>
                 <button onclick="fecharModalGarcom()" 
                         style="background: #95a5a6; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">
                     ❌ Cancelar
@@ -754,6 +765,17 @@ try {
                     if (window.caixaSystem && typeof window.caixaSystem.mostrarToast === 'function') {
                         window.caixaSystem.mostrarToast(data.message, 'success');
                     }
+                    
+                    // Adicionar produto automaticamente se houver um pendente
+                    if (window.produtoParaAdicionar) {
+                        const produto = window.produtoParaAdicionar;
+                        window.produtoParaAdicionar = null; // Limpar
+                        
+                        // Aguardar um pouco para garantir que a comanda foi criada
+                        setTimeout(() => {
+                            window.caixaSystem.adicionarItem(produto.id, produto.quantidade);
+                        }, 500);
+                    }
                 } else {
                     throw new Error(data.message || 'Erro ao criar comanda');
                 }
@@ -761,6 +783,32 @@ try {
                 console.error('Erro ao criar comanda:', error);
                 alert('Erro ao criar comanda: ' + error.message);
                 fecharModalGarcom();
+            }
+        }
+
+        // Função para criar comanda do caixa (sem garçom)
+        async function criarComandaCaixa() {
+            try {
+                if (window.caixaSystem) {
+                    await window.caixaSystem.novaComanda();
+                    fecharModalGarcom();
+                    
+                    // Adicionar produto automaticamente se houver um pendente
+                    if (window.produtoParaAdicionar) {
+                        const produto = window.produtoParaAdicionar;
+                        window.produtoParaAdicionar = null; // Limpar
+                        
+                        // Aguardar um pouco para garantir que a comanda foi criada
+                        setTimeout(() => {
+                            window.caixaSystem.adicionarItem(produto.id, produto.quantidade);
+                        }, 500);
+                    }
+                } else {
+                    alert('Sistema ainda não está pronto. Tente novamente.');
+                }
+            } catch (error) {
+                console.error('Erro ao criar comanda do caixa:', error);
+                alert('Erro ao criar comanda do caixa');
             }
         }
 

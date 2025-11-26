@@ -1,12 +1,12 @@
 <?php
 class PathConfig {
-    // Configurações para subdomínio (raiz)
-    const BASE_URL = '';
+    // Configurações para localhost XAMPP
+    const BASE_URL = '/gestaointeli-jnr/public_html/caixa-seguro-7xy3q9kkle';
     const BASE_DIR = __DIR__ . '/../';
     
     // URLs públicas (para navegador)
     public static function url($path = '') {
-        return '/' . ltrim($path, '/');
+        return self::BASE_URL . '/' . ltrim($path, '/');
     }
     
     public static function api($endpoint = '') {

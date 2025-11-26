@@ -2,7 +2,7 @@ class EstoqueManager {
     constructor() {
         this.debug = true;
         this.baseUrl = '';
-        this.apiUrl = '/api';
+        this.apiUrl = '../../../api';
         this.modalInitialized = false;
     }
 
