@@ -1,0 +1,155 @@
+⚡ QUICK START - Modal de Alertas de Perdas
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🎯 OBJETIVO FINAL
+Ao clicar em "Perdas Identificadas" no dashboard, um modal aparece mostrando:
+  1. Alertas pendentes (perdas não visualizadas)
+  2. Histórico completo (todas as perdas)
+  3. Filtros por período
+  4. Botões para marcar como visualizado
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📋 CHECKLIST DE IMPLEMENTAÇÃO (3 MINUTOS)
+
+□ Passo 1: Executar SQL (1 minuto)
+  └─ Via MySQL/phpMyAdmin:
+     - Abra: database/11_criar_analise_estoque_com_periodo_perdas.sql
+     - Copie todo o conteúdo
+     - Cole na aba SQL do phpMyAdmin
+     - Clique em EXECUTAR
+     - Resultado: "Sem erros" deve aparecer
+
+□ Passo 2: Verificar Arquivos (1 minuto)
+  └─ Confirme que esses arquivos existem:
+     ✓ api/perdas_nao_visualizadas.php
+     ✓ api/marcar_perda_visualizada.php (modificado)
+     ✓ api/relatorio_analise_estoque_periodo_perdas.php
+     ✓ modules/relatorios/relatorios.js (modificado)
+
+□ Passo 3: Testar (1 minuto)
+  └─ Abra o módulo de Relatórios:
+     1. Clique em "Perdas Identificadas"
+     2. Modal deve abrir
+     3. Verifique se mostra alertas e histórico
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🚀 COMEÇAR A USAR
+
+1. Dashboard
+   └─ Acesse: http://localhost/caixa-seguro-7xy3q9kkle/modules/relatorios/
+   └─ Procure o card "Perdas Identificadas"
+   └─ Note o contador (ex: 5 perdas)
+
+2. Abrir Modal
+   └─ Clique no card OU no botão "📋 Ver Histórico"
+   └─ Modal abre mostrando:
+      • Alertas: Perdas não visualizadas (botão ✓ Visualizar)
+      • Histórico: Todas as perdas da base
+
+3. Marcar Como Visualizado
+   └─ No modal, clique "✓ Visualizar" em um alerta
+   └─ Resultado: 
+      ✓ Alerta desaparece com animação
+      ✓ Toast "Sucesso!" aparece
+      ✓ Contador no dashboard decresce
+      ✓ Perda permanece em Histórico (marcada como ✅)
+
+4. Filtrar por Período
+   └─ No modal, altere as datas
+   └─ Clique "🔍 Filtrar"
+   └─ Tabelas atualizam com dados do período
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🔍 VALIDAÇÃO RÁPIDA
+
+Execute no SQL do phpMyAdmin para confirmar:
+
+-- 1. Verificar tabela
+DESCRIBE perdas_estoque;
+
+-- 2. Ver quantas perdas não visualizadas temos
+SELECT COUNT(*) FROM perdas_estoque WHERE visualizada = 0;
+
+-- 3. Ver últimas 5 perdas
+SELECT id, produto_id, quantidade_perdida, visualizada, data_identificacao 
+FROM perdas_estoque 
+ORDER BY data_identificacao DESC 
+LIMIT 5;
+
+-- 4. Testar SP
+CALL relatorio_analise_estoque_periodo_com_filtro_perdas('2025-12-01', '2025-12-12');
+
+═══════════════════════════════════════════════════════════════════════════════
+
+❓ SE ALGO NÃO FUNCIONAR
+
+Modal vazio?
+  └─ Significa: nenhuma perda não visualizada
+  └─ Solução: criar dados de teste ou marcar como não visualizado
+
+"Erro ao carregar"?
+  └─ Significa: API não encontrada
+  └─ Solução: verificar permissões (644) ou recarregar página
+
+Contador não atualiza?
+  └─ Significa: cache do navegador
+  └─ Solução: Ctrl+Shift+Del (limpar cache) ou F5 refresh
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📊 O QUE FOI CRIADO
+
+Arquivos Novos:
+  ✓ api/perdas_nao_visualizadas.php (300 linhas)
+  ✓ api/relatorio_analise_estoque_periodo_perdas.php (100 linhas)
+  ✓ database/11_criar_analise_estoque_com_periodo_perdas.sql (170 linhas)
+  ✓ documentaçoes/MODAL_ALERTAS_PERDAS_DOCUMENTACAO.md
+  ✓ documentaçoes/ARQUITETURA_MODAL_ALERTAS.md
+  ✓ documentaçoes/IMPLEMENTACAO_MODAL_ALERTAS_RESUMO.md
+
+Arquivos Modificados:
+  ✓ api/marcar_perda_visualizada.php (melhorias)
+  ✓ modules/relatorios/relatorios.js (novos métodos)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+💡 DICAS PRÁTICAS
+
+1. Para criar dados de teste:
+   INSERT INTO perdas_estoque (produto_id, quantidade_perdida, valor_perda, 
+   data_identificacao, visualizada) 
+   VALUES (1, 5, 50.00, NOW(), 0);
+
+2. Para limpar tudo:
+   UPDATE perdas_estoque SET visualizada = 0;
+   (Isso marca TODAS como não visualizadas novamente)
+
+3. Para deletar:
+   DELETE FROM perdas_estoque WHERE visualizada = 1;
+   (Deleta apenas as já visualizadas)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📚 DOCUMENTAÇÃO COMPLETA
+
+Para mais detalhes, leia:
+  1. MODAL_ALERTAS_PERDAS_DOCUMENTACAO.md (Como funciona)
+  2. ARQUITETURA_MODAL_ALERTAS.md (Diagramas e fluxos)
+  3. IMPLEMENTACAO_MODAL_ALERTAS_RESUMO.md (Resumo técnico)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ PRONTO!
+
+Você agora tem um sistema completo de:
+  ✓ Modal com alertas de perdas
+  ✓ Marcar como visualizado
+  ✓ Sincronização automática
+  ✓ Filtros por período
+  ✓ Histórico integrado
+
+Bom uso! 🎉

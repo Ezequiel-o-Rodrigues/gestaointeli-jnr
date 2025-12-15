@@ -214,11 +214,13 @@ if (window.CaixaSystemAlreadyLoaded) {
     
     async adicionarItem(produtoId, quantidade = 1) {
         if (!this.comandaAtual) {
-            // Armazenar produto para adicionar após criar comanda
-            window.produtoParaAdicionar = { id: produtoId, quantidade: quantidade };
-            // Abrir modal de seleção de garçom automaticamente
-            abrirModalGarcom();
-            return;
+            // Criar comanda automaticamente SEM CONFIRMAÇÃO
+            await this.novaComanda();
+
+            if (!this.comandaAtual || !this.comandaAtual.id) {
+                this.mostrarToast('Não foi possível criar a comanda', 'error');
+                return;
+            }
         }
         
         if (this.carregando) return;
@@ -512,11 +514,7 @@ if (window.CaixaSystemAlreadyLoaded) {
             return;
         }
         
-        // Confirmar finalização
-        if (!confirm('Finalizar comanda e baixar estoque?')) {
-            console.log('Usuário cancelou confirmação de finalização');
-            return;
-        }
+        // Finalizar sem confirmação
         
         try {
             this.carregando = true;
@@ -901,11 +899,12 @@ async imprimirComprovante(comprovanteId) {
     }
 }
 
-    // Inicializar sistema quando DOM estiver pronto
-    document.addEventListener('DOMContentLoaded', () => {
-        // evitar duplicação de instância
-        if (!window.caixaSystem) {
-            window.caixaSystem = new CaixaSystem();
-        }
-    });
+// Inicializar sistema quando DOM estiver pronto
+document.addEventListener('DOMContentLoaded', () => {
+    // evitar duplicação de instância
+    if (!window.caixaSystem) {
+        window.caixaSystem = new CaixaSystem();
+    }
+});
+
 }

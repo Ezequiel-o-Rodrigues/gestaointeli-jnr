@@ -113,18 +113,25 @@ try {
             <p>Produtos com estoque baixo</p>
         </div>
         
-        <div class="dashboard-card <?= ($dashboard['total_perdas'] ?? 0) > 0 ? 'alerta' : '' ?>">
-            <h3>Perdas Identificadas</h3>
-            <div class="numero <?= ($dashboard['total_perdas'] ?? 0) > 0 ? 'alerta' : '' ?>">
-                <?= $dashboard['total_perdas'] ?? 0 ?>
+        <div class="dashboard-card <?= ($dashboard['total_perdas'] ?? 0) > 0 ? 'alerta' : '' ?>" style="cursor: pointer; position: relative;">
+            <div onclick="abrirHistoricoPerdas()" style="flex: 1;">
+                <h3>Perdas Identificadas</h3>
+                <div class="numero <?= ($dashboard['total_perdas'] ?? 0) > 0 ? 'alerta' : '' ?>" id="perdas-nao-visualizadas">
+                    <?= $dashboard['total_perdas'] ?? 0 ?>
+                </div>
+                <p>Produtos com divergência</p>
             </div>
-            <p>Produtos com divergência</p>
+            <div style="border-left: 2px solid rgba(0,0,0,0.1); padding-left: 15px; display: flex; flex-direction: column; justify-content: center;">
+                <button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); abrirHistoricoPerdas();" title="Ver histórico completo">
+                    📋 Ver
+                </button>
+            </div>
         </div>
     </div>
 
-    <!-- Seção de Alertas de Perda -->
-    <div id="alertas-perda-container" class="alertas-section">
-        <div class="alerta-item sucesso">Carregando análise de estoque...</div>
+    <!-- CONTAINER DE ALERTAS DE PERDAS -->
+    <div id="alertas-perda-container" class="alertas-perda-section" style="display: none;">
+        <!-- Alertas serão carregados aqui via JavaScript -->
     </div>
 
     <div class="relatorios-section">
@@ -230,32 +237,6 @@ try {
 
 .dashboard-card .numero.alerta {
     color: #e74c3c;
-}
-
-.alertas-section {
-    background: #fff3cd;
-    border: 1px solid #ffeaa7;
-    border-radius: 10px;
-    padding: 1.5rem;
-    margin: 1rem 0;
-}
-
-.alerta-item {
-    padding: 1rem;
-    margin: 0.5rem 0;
-    border-radius: 5px;
-    border-left: 4px solid #e74c3c;
-    background: white;
-}
-
-.alerta-item.perda {
-    background: #f8d7da;
-    border-left-color: #dc3545;
-}
-
-.alerta-item.sucesso {
-    background: #d1edff;
-    border-left-color: #3498db;
 }
 
 .filtros-relatorios {

@@ -14,21 +14,21 @@ $error = '';
 
 // Processar login
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = $_POST['email'] ?? '';
+    $login = $_POST['email'] ?? '';
     $senha = $_POST['senha'] ?? '';
     
-    error_log("Tentando login com email: " . $email);
+    error_log("Tentando login com: " . $login);
     
-    if (!empty($email) && !empty($senha)) {
+    if (!empty($login) && !empty($senha)) {
         require_once __DIR__ . '/config/database.php';
         
         try {
             $database = new Database();
             $db = $database->getConnection();
             
-            // ✅ CORREÇÃO: Usar a estrutura correta da tabela
+            // Aceitar email como login
             $stmt = $db->prepare("SELECT id, nome, email, senha, perfil, ativo FROM usuarios WHERE email = ? AND ativo = 1");
-            $stmt->execute([$email]);
+            $stmt->execute([$login]);
             $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if ($usuario) {
@@ -59,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             } else {
                 error_log("❌ USUÁRIO NÃO ENCONTRADO OU INATIVO");
-                $error = 'Email não encontrado ou usuário inativo';
+                $error = 'Usuário não encontrado ou inativo';
             }
         } catch (Exception $e) {
             error_log("❌ ERRO NO BANCO: " . $e->getMessage());
@@ -145,12 +145,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         
                         <form method="post" id="loginForm">
                             <div class="mb-3">
-                                <label for="email" class="form-label">Email</label>
+                                <label for="email" class="form-label">Usuário ou Email</label>
                                 <div class="input-group">
-                                    <span class="input-group-text"><i class="bi bi-envelope"></i></span>
-                                    <input type="email" class="form-control" id="email" name="email" required 
+                                    <span class="input-group-text"><i class="bi bi-person"></i></span>
+                                    <input type="text" class="form-control" id="email" name="email" required 
                                            value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" 
-                                           placeholder="admin@sistema.com">
+                                           placeholder="junior ou admin@sistema.com">
                                 </div>
                             </div>
                             <div class="mb-3">

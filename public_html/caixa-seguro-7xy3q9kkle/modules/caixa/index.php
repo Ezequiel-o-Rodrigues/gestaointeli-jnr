@@ -112,11 +112,19 @@ try {
             justify-content: space-between;
             align-items: center;
             height: 50px;
+            gap: 15px;
         }
 
         .mini-header h1 {
             font-size: 1.2rem;
             font-weight: 600;
+            margin: 0;
+        }
+
+        .nav-botoes {
+            display: flex;
+            gap: 8px;
+            align-items: center;
         }
 
         .btn-voltar {
@@ -128,6 +136,14 @@ try {
             cursor: pointer;
             font-size: 0.85rem;
             text-decoration: none;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .btn-voltar:hover {
+            background: #2c3e50;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
 
         /* COMANDA HORIZONTAL - NOVO LAYOUT */
@@ -531,7 +547,12 @@ try {
     <!-- CABEÇALHO -->
     <div class="mini-header">
         <h1>💰 Caixa Rápido</h1>
-        <a href="<?php echo $base_path; ?>" class="btn-voltar">🏠 Início</a>
+        <div class="nav-botoes">
+            <a href="<?php echo $base_path; ?>" class="btn-voltar">🏠 Início</a>
+            <a href="<?php echo $base_path; ?>modules/estoque/" class="btn-voltar">📦 Estoque</a>
+            <a href="<?php echo $base_path; ?>modules/relatorios/" class="btn-voltar">📊 Relatórios</a>
+            <a href="<?php echo $base_path; ?>modules/admin/" class="btn-voltar">⚙️ Admin</a>
+        </div>
     </div>
 
     <!-- COMANDA HORIZONTAL - NOVA POSIÇÃO -->

@@ -210,32 +210,81 @@ class Relatorios {
 
     async carregarAlertasPerda() {
         try {
-            const response = await fetch('../../api/relatorio_alertas_perda.php');
+            // Carregar perdas não visualizadas (dinâmicas) do período atual
+            const response = await fetch('../../api/perdas_nao_visualizadas_dinamicas.php');
             const dados = await response.json();
 
             if (dados.success) {
-                this.exibirAlertasPerda(dados.data);
+                // Apenas atualizar o card, sem exibir seção de alertas
+                this.atualizarCardPerdas(dados.total, dados.total_valor);
             }
         } catch (error) {
             console.error('Erro ao carregar alertas:', error);
         }
     }
 
-    exibirAlertasPerda(alertas) {
+    atualizarCardPerdas(total, valorTotal) {
+        // Atualizar o card "Perdas Identificadas" no dashboard
+        const cardElement = document.querySelector('[id*="perdas"]');
+        if (cardElement) {
+            const valorElement = cardElement.querySelector('.card-value, h4, .numero');
+            if (valorElement) {
+                valorElement.textContent = total || 0;
+            }
+        }
+        
+        // Atualizar especificamente se houver elemento específico
+        const contadorElement = document.getElementById('perdas-nao-visualizadas');
+        if (contadorElement) {
+            contadorElement.textContent = total || 0;
+            
+            // Mostrar/ocultar card baseado na quantidade
+            const card = contadorElement.closest('.dashboard-card, .card, [class*="card"]');
+            if (card) {
+                if (total > 0) {
+                    card.classList.add('alerta');
+                    card.style.display = 'block';
+                } else {
+                    card.classList.remove('alerta');
+                    card.style.opacity = '0.6';
+                }
+            }
+        }
+    }
+
+    exibirAlertasPerda(alertas, totalAlertas = 0) {
         const container = document.getElementById('alertas-perda-container');
         if (!container) return;
 
+        // Atualizar contador no dashboard
+        const contadorElement = document.getElementById('perdas-nao-visualizadas');
+        if (contadorElement) {
+            contadorElement.textContent = totalAlertas || alertas.length || 0;
+        }
+
         if (!alertas || alertas.length === 0) {
-            container.innerHTML = '<div class="alerta-item sucesso">✅ Nenhuma perda de estoque identificada</div>';
+            container.style.display = 'none';
             return;
         }
 
+        // Mostrar container se há alertas
+        container.style.display = 'block';
+
+        // Calcular totais
+        const totalQuantidade = alertas.reduce((sum, a) => sum + (a.quantidade_perdida || 0), 0);
+        const totalValor = alertas.reduce((sum, a) => sum + (a.valor_perda || 0), 0);
+
         let html = `
             <div class="alertas-header">
-                <h4>🚨 Alertas de Perda de Estoque (${alertas.length})</h4>
+                <div>
+                    <h4>🚨 Alertas de Perda de Estoque (${alertas.length} produtos)</h4>
+                    <small style="color: #e74c3c;">
+                        <strong>${totalQuantidade} un | ${this.formatarMoeda(totalValor)}</strong>
+                    </small>
+                </div>
                 <div class="alertas-actions">
                     <button class="btn btn-sm btn-outline-primary" onclick="abrirHistoricoPerdas()">
-                        📋 Histórico Completo
+                        📋 Ver Completo
                     </button>
                     <button class="btn btn-sm btn-outline-secondary" onclick="toggleAlertasPerda()" id="btn-toggle-alertas">
                         ➖ Minimizar
@@ -245,22 +294,41 @@ class Relatorios {
             <div id="alertas-content" class="alertas-content">
         `;
         
-        alertas.forEach(alerta => {
+        alertas.slice(0, 5).forEach(alerta => {
+            const dataIdentificacao = new Date(alerta.data_identificacao).toLocaleDateString('pt-BR');
+            const quantidade = alerta.quantidade_perdida || 0;
+            const valor = alerta.valor_perda || 0;
+            
             html += `
                 <div class="alerta-item perda" data-alerta-id="${alerta.id}">
                     <div class="alerta-info">
-                        <strong>${alerta.nome}</strong> (${alerta.categoria})
-                        <br>
-                        <small>Diferença: ${alerta.diferenca_estoque} unidades | Valor: ${this.formatarMoeda(alerta.valor_perda || 0)}</small>
-                        <br>
-                        <small>Entradas: ${alerta.total_entradas} | Vendidos: ${alerta.total_vendido} | Atual: ${alerta.estoque_atual}</small>
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                            <div>
+                                <strong>${alerta.produto_nome || 'Produto desconhecido'}</strong> 
+                                <span class="badge bg-secondary">${alerta.categoria_nome || 'S/Categoria'}</span>
+                            </div>
+                            <span style="background: #e74c3c; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.85rem;">
+                                -${quantidade} un
+                            </span>
+                        </div>
+                        <small class="text-muted" style="display: block; margin-bottom: 4px;">📅 ${dataIdentificacao}</small>
+                        <small style="color: #e74c3c; font-weight: 600;">Valor: ${this.formatarMoeda(valor)}</small>
+                        ${alerta.motivo ? `<br><small class="text-muted"><strong>Motivo:</strong> ${alerta.motivo}</small>` : ''}
                     </div>
-                    <button class="btn btn-sm btn-success" onclick="marcarPerdaVisualizada(${alerta.id})">
+                    <button class="btn btn-sm btn-success" onclick="marcarPerdaVisualizada(${alerta.id})" title="Marcar como visualizado">
                         ✓ Visualizado
                     </button>
                 </div>
             `;
         });
+
+        if (alertas.length > 5) {
+            html += `
+                <div style="text-align: center; padding: 15px; color: #999;">
+                    <small>+ ${alertas.length - 5} alertas. <a href="#" onclick="abrirHistoricoPerdas(); return false;">Ver todos</a></small>
+                </div>
+            `;
+        }
 
         html += '</div>';
         container.innerHTML = html;
@@ -491,10 +559,6 @@ class Relatorios {
                                 <i class="bi bi-grid"></i>
                                 <span class="header-text">Categoria</span>
                             </th>
-                            <th class="numero-col">
-                                <i class="bi bi-box-arrow-in-down"></i>
-                                <span class="header-text">Estoque Inicial</span>
-                            </th>
                             <th class="numero-col positivo">
                                 <i class="bi bi-plus-circle"></i>
                                 <span class="header-text">+ Entradas</span>
@@ -545,7 +609,6 @@ class Relatorios {
                             <td class="categoria-cell">
                                 <span class="badge categoria-badge">${item.categoria}</span>
                             </td>
-                            <td class="numero-cell">${item.estoque_inicial}</td>
                             <td class="numero-cell positivo">${item.entradas_periodo}</td>
                             <td class="numero-cell negativo">${item.vendidas_periodo}</td>
                             <td class="numero-cell teorico">
@@ -675,13 +738,15 @@ class Relatorios {
             const result = await response.json();
             
             if (result.success) {
-                // Remover o alerta da tela
-                const alertaElement = document.querySelector(`[data-alerta-id="${perdaId}"]`);
+                // Remover o alerta da tela (procura em diferentes containers)
+                let alertaElement = document.querySelector(`[data-alerta-id="${perdaId}"]`);
+                
                 if (alertaElement) {
                     alertaElement.style.animation = 'fadeOut 0.3s ease';
                     setTimeout(() => {
                         alertaElement.remove();
                         this.verificarAlertasVazios();
+                        this.atualizarContadorPerdas();
                     }, 300);
                 }
                 
@@ -695,31 +760,104 @@ class Relatorios {
         }
     }
 
-    verificarAlertasVazios() {
-        const container = document.getElementById('alertas-perda-container');
-        const alertas = container.querySelectorAll('.alerta-item.perda');
-        
-        if (alertas.length === 0) {
-            container.innerHTML = '<div class="alerta-item sucesso">✅ Todas as perdas foram visualizadas</div>';
-        } else {
-            // Atualizar contador no header
-            const header = container.querySelector('h4');
-            if (header) {
-                header.textContent = `🚨 Alertas de Perda de Estoque (${alertas.length})`;
+    async marcarPerdaDinamicaVisualizada(produtoId, produtoNome, quantidade, valor) {
+        try {
+            const response = await fetch('../../api/marcar_perda_visualizada_dinamica.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    produto_id: produtoId,
+                    quantidade_perdida: quantidade,
+                    valor_perda: valor,
+                    data_identificacao: new Date().toISOString()
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Encontrar a linha correspondente
+                let linhaElement = document.querySelector(`[data-alerta-id="produto-${produtoId}"]`);
+                
+                if (linhaElement) {
+                    // Atualizar o status para "Visualizada"
+                    const statusCell = linhaElement.querySelector('[id^="status-"]');
+                    if (statusCell) {
+                        statusCell.innerHTML = '<span class="text-success">✅ Visualizada</span>';
+                    }
+                    
+                    // Animar
+                    linhaElement.style.backgroundColor = '#d4edda';
+                    setTimeout(() => {
+                        linhaElement.style.backgroundColor = '';
+                    }, 1000);
+                }
+                
+                this.mostrarToast(`${produtoNome} marcado como visualizado`, 'success');
+                
+                // IMPORTANTE: Atualizar contador no card do dashboard
+                this.atualizarContadorPerdas();
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (error) {
+            console.error('Erro ao marcar perda dinâmica:', error);
+            this.mostrarToast('Erro ao marcar perda como visualizada: ' + error.message, 'error');
+        }
+    }
+
+    atualizarContadorPerdas() {
+        const contadorElement = document.getElementById('perdas-nao-visualizadas');
+        if (contadorElement) {
+            const contagemAtual = parseInt(contadorElement.textContent) || 0;
+            const novaContagem = Math.max(0, contagemAtual - 1);
+            contadorElement.textContent = novaContagem;
+            
+            // Remover classe de alerta se chegou a zero
+            if (novaContagem === 0) {
+                const card = contadorElement.closest('.dashboard-card');
+                if (card) {
+                    card.classList.remove('alerta');
+                    contadorElement.classList.remove('alerta');
+                }
             }
         }
     }
 
-    async abrirHistoricoPerdas(filtros = {}) {
+    async aplicarFiltroData() {
+        const mesAno = document.getElementById('filtro-mes-ano').value;
+        const dataInicio = document.getElementById('filtro-data-inicio').value;
+        const dataFim = document.getElementById('filtro-data-fim').value;
+        
+        let filtros = {};
+        
+        // Priorizar filtro por período específico se ambas as datas estiverem preenchidas
+        if (dataInicio && dataFim) {
+            if (dataInicio > dataFim) {
+                this.mostrarToast('Data de início deve ser anterior à data fim', 'error');
+                return;
+            }
+            filtros = { data_inicio: dataInicio, data_fim: dataFim };
+        } else if (mesAno) {
+            filtros = { mes_ano: mesAno };
+        }
+        
+        // Recarregar dados com filtro
         try {
-            let url = '../../api/historico_perdas.php';
+            let url = '../../api/historico_perdas_corrigido.php';
             const params = new URLSearchParams();
             
             if (filtros.data_inicio && filtros.data_fim) {
                 params.append('data_inicio', filtros.data_inicio);
                 params.append('data_fim', filtros.data_fim);
             } else if (filtros.mes_ano) {
-                params.append('mes_ano', filtros.mes_ano);
+                // Converter mes_ano em data_inicio e data_fim
+                const [year, month] = filtros.mes_ano.split('-');
+                const dataInicio = `${year}-${month}-01`;
+                const ultimoDia = new Date(year, month, 0).getDate();
+                const dataFim = `${year}-${month}-${ultimoDia}`;
+                params.append('data_inicio', dataInicio);
+                params.append('data_fim', dataFim);
             }
             
             if (params.toString()) {
@@ -730,17 +868,105 @@ class Relatorios {
             const result = await response.json();
             
             if (result.success) {
-                this.mostrarModalHistoricoPerdas(result.data, result.filtros);
+                // Atualizar apenas a tabela
+                const container = document.getElementById('tabela-historico-container');
+                if (container) {
+                    container.innerHTML = this.criarTabelaHistoricoPerdas(result.data);
+                }
+                
+                const totalFiltrado = result.data.filter(p => p.quantidade_perdida > 0).length;
+                this.mostrarToast(`Filtro aplicado: ${totalFiltrado} perdas encontradas`, 'success');
             } else {
                 throw new Error(result.message);
             }
         } catch (error) {
-            console.error('Erro ao carregar histórico:', error);
-            this.mostrarToast('Erro ao carregar histórico de perdas', 'error');
+            console.error('Erro ao aplicar filtro:', error);
+            this.mostrarToast('Erro ao aplicar filtro', 'error');
         }
     }
 
-    mostrarModalHistoricoPerdas(perdas, filtros = {}) {
+    limparFiltroData() {
+        document.getElementById('filtro-mes-ano').value = '';
+        document.getElementById('filtro-data-inicio').value = '';
+        document.getElementById('filtro-data-fim').value = '';
+        
+        // Recarregar todos os dados
+        this.abrirHistoricoPerdas();
+    }
+
+    exportarHistoricoPerdas() {
+        const tabela = document.querySelector('#modalHistoricoPerdas table');
+        if (!tabela) {
+            this.mostrarToast('Nenhuma tabela para exportar', 'error');
+            return;
+        }
+        
+        const html = tabela.outerHTML;
+        const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `historico_perdas_${new Date().toISOString().split('T')[0]}.xls`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+        this.mostrarToast('Histórico exportado com sucesso', 'success');
+    }
+
+    verificarAlertasVazios() {
+        const containerAlertas = document.getElementById('alertas-perda-container');
+        if (containerAlertas) {
+            const alertas = containerAlertas.querySelectorAll('.alerta-item.perda');
+            
+            if (alertas.length === 0) {
+                containerAlertas.innerHTML = '<div class="alerta-item sucesso">✅ Todas as perdas foram visualizadas</div>';
+            } else {
+                // Atualizar contador no header
+                const header = containerAlertas.querySelector('h4');
+                if (header) {
+                    header.textContent = `🚨 Alertas de Perda de Estoque (${alertas.length})`;
+                }
+            }
+        }
+        
+        // Verificar também na tabela de alertas do modal
+        const tabelaAlertas = document.getElementById('alertas-container');
+        if (tabelaAlertas) {
+            const linhasAlertas = tabelaAlertas.querySelectorAll('tr.alerta-row');
+            if (linhasAlertas.length === 0) {
+                tabelaAlertas.innerHTML = '<div class="alert alert-success">✅ Nenhum alerta pendente de visualização</div>';
+            }
+        }
+    }
+
+    async abrirHistoricoPerdas(filtros = {}) {
+        try {
+            // Usar API corrigida que calcula perdas dinamicamente
+            const data_inicio = filtros.data_inicio || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+            const data_fim = filtros.data_fim || new Date().toISOString().split('T')[0];
+            
+            const params = new URLSearchParams();
+            params.append('data_inicio', data_inicio);
+            params.append('data_fim', data_fim);
+            
+            const response = await fetch('../../api/historico_perdas_corrigido.php?' + params.toString());
+            const result = await response.json();
+            
+            if (result.success) {
+                // Mostrar modal com os dados do período
+                this.mostrarModalHistoricoPerdas(result.data || [], { data_inicio, data_fim });
+            } else {
+                throw new Error(result.message || 'Erro ao carregar histórico');
+            }
+        } catch (error) {
+            console.error('Erro ao carregar histórico:', error);
+            this.mostrarToast('Erro ao carregar histórico de perdas: ' + error.message, 'error');
+        }
+    }
+
+    mostrarModalHistoricoPerdas(perdas = [], filtros = {}) {
         const modalHtml = `
             <div class="modal fade" id="modalHistoricoPerdas" tabindex="-1">
                 <div class="modal-dialog modal-xl">
@@ -782,7 +1008,12 @@ class Relatorios {
 
     criarTabelaHistoricoPerdas(perdas) {
         if (!perdas || perdas.length === 0) {
-            return '<div class="text-center p-4">📊 Nenhuma perda registrada no histórico</div>';
+            return '<div class="text-center p-4">📊 Nenhuma perda registrada no período</div>';
+        }
+
+        const comPerda = perdas.filter(p => p.quantidade_perdida > 0);
+        if (comPerda.length === 0) {
+            return '<div class="text-center p-4">📊 Nenhuma perda registrada no período</div>';
         }
 
         let html = `
@@ -790,37 +1021,47 @@ class Relatorios {
                 <table class="table table-striped table-hover">
                     <thead class="table-dark">
                         <tr>
-                            <th>Data</th>
                             <th>Produto</th>
                             <th>Categoria</th>
+                            <th>Inicial</th>
+                            <th>Entradas</th>
+                            <th>Vendas</th>
+                            <th>Teórico</th>
+                            <th>Real</th>
                             <th>Quantidade</th>
                             <th>Valor</th>
-                            <th>Motivo</th>
                             <th>Status</th>
-                            <th>Visualizada em</th>
                         </tr>
                     </thead>
                     <tbody>
         `;
 
-        perdas.forEach(perda => {
-            const dataIdentificacao = new Date(perda.data_identificacao).toLocaleDateString('pt-BR');
-            const dataVisualizacao = perda.data_visualizacao ? 
-                new Date(perda.data_visualizacao).toLocaleDateString('pt-BR') : '-';
-            const statusClass = perda.visualizada ? 'text-success' : 'text-warning';
-            const statusIcon = perda.visualizada ? '✅' : '⏳';
-            const statusText = perda.visualizada ? 'Visualizada' : 'Pendente';
-
+        comPerda.forEach(perda => {
+            const idAlerta = perda.id || `perda-${Math.random()}`;
+            let statusContent;
+            
+            // Se já foi visualizada, mostrar checkmark
+            if (perda.visualizada === true || perda.visualizada === 1) {
+                statusContent = `<span class="text-success">✅ Visualizada</span>`;
+            } else {
+                // Se é uma perda nova (dinâmica), mostrar botão
+                statusContent = `<button class="btn btn-sm btn-success" onclick="marcarPerdaDinamicaVisualizada(${perda.produto_id}, '${perda.produto_nome}', ${perda.quantidade_perdida}, ${parseFloat(perda.valor_perda || 0)}, event)">
+                    ✓ Visualizar
+                </button>`;
+            }
+            
             html += `
-                <tr>
-                    <td>${dataIdentificacao}</td>
-                    <td><strong>${perda.produto_nome}</strong></td>
-                    <td><span class="badge bg-secondary">${perda.categoria_nome}</span></td>
-                    <td class="text-center">${perda.quantidade_perdida}</td>
-                    <td class="text-end">${this.formatarMoeda(perda.valor_perda)}</td>
-                    <td>${perda.motivo || 'Diferença de inventário'}</td>
-                    <td class="${statusClass}">${statusIcon} ${statusText}</td>
-                    <td>${dataVisualizacao}</td>
+                <tr id="perda-row-${idAlerta}" data-alerta-id="produto-${perda.produto_id || Math.random()}">
+                    <td><strong>${perda.produto_nome || 'Desconhecido'}</strong></td>
+                    <td><span class="badge bg-secondary">${perda.categoria_nome || 'S/Cat'}</span></td>
+                    <td class="text-center">${perda.estoque_inicial || 0}</td>
+                    <td class="text-center text-success">+${perda.entradas_periodo || 0}</td>
+                    <td class="text-center text-danger">-${perda.saidas_periodo || 0}</td>
+                    <td class="text-center">${perda.estoque_teorico_final || 0}</td>
+                    <td class="text-center">${perda.estoque_real_final || 0}</td>
+                    <td class="text-center text-danger"><strong>${perda.quantidade_perdida} un</strong></td>
+                    <td class="text-end text-danger"><strong>${this.formatarMoeda(perda.valor_perda || 0)}</strong></td>
+                    <td class="text-center" id="status-${idAlerta}">${statusContent}</td>
                 </tr>
             `;
         });
@@ -831,19 +1072,27 @@ class Relatorios {
             </div>
             <div class="mt-3">
                 <div class="row">
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <div class="card bg-light">
                             <div class="card-body text-center">
-                                <h6>Total de Perdas</h6>
-                                <h4 class="text-danger">${perdas.length}</h4>
+                                <h6>Produtos com Perda</h6>
+                                <h4 class="text-danger">${comPerda.length}</h4>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6>Total de Unidades</h6>
+                                <h4 class="text-danger">${comPerda.reduce((sum, p) => sum + (p.quantidade_perdida || 0), 0)}</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
                         <div class="card bg-light">
                             <div class="card-body text-center">
                                 <h6>Valor Total</h6>
-                                <h4 class="text-danger">${this.formatarMoeda(perdas.reduce((sum, p) => sum + parseFloat(p.valor_perda || 0), 0))}</h4>
+                                <h4 class="text-danger">${this.formatarMoeda(comPerda.reduce((sum, p) => sum + parseFloat(p.valor_perda || 0), 0))}</h4>
                             </div>
                         </div>
                     </div>
@@ -852,21 +1101,6 @@ class Relatorios {
         `;
 
         return html;
-    }
-
-    toggleAlertasPerda() {
-        const content = document.getElementById('alertas-content');
-        const btn = document.getElementById('btn-toggle-alertas');
-        
-        if (content.style.display === 'none') {
-            content.style.display = 'block';
-            btn.innerHTML = '➖ Minimizar';
-            btn.className = 'btn btn-sm btn-outline-secondary';
-        } else {
-            content.style.display = 'none';
-            btn.innerHTML = '➕ Expandir';
-            btn.className = 'btn btn-sm btn-outline-primary';
-        }
     }
 
     criarFiltrosData(filtros = {}) {
@@ -918,41 +1152,117 @@ class Relatorios {
         `;
     }
 
+    criarTabelaAlertas(alertas) {
+        if (!alertas || alertas.length === 0) {
+            return '<div class="text-center p-3">Nenhum alerta pendente</div>';
+        }
+
+        let html = `
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Data Identificada</th>
+                            <th>Produto</th>
+                            <th>Categoria</th>
+                            <th class="text-center">Quantidade</th>
+                            <th class="text-right">Valor</th>
+                            <th class="text-center">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        alertas.forEach(alerta => {
+            const dataIdentificacao = new Date(alerta.data_identificacao).toLocaleDateString('pt-BR');
+            
+            html += `
+                <tr data-alerta-id="${alerta.id}" class="alerta-row">
+                    <td>${dataIdentificacao}</td>
+                    <td><strong>${alerta.produto_nome}</strong></td>
+                    <td><span class="badge bg-secondary">${alerta.categoria_nome}</span></td>
+                    <td class="text-center">${alerta.quantidade_perdida} un</td>
+                    <td class="text-right"><strong class="text-danger">${this.formatarMoeda(alerta.valor_perda)}</strong></td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-success" 
+                                onclick="marcarPerdaVisualizadaModal(${alerta.id}, event)">
+                            ✓ Visualizar
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-3 p-3 bg-light border rounded">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <strong>Total de Alertas:</strong><br>
+                        <span class="text-danger" style="font-size: 1.5rem;">${alertas.length}</span>
+                    </div>
+                    <div class="col-6">
+                        <strong>Valor Total:</strong><br>
+                        <span class="text-danger" style="font-size: 1.5rem;">
+                            ${this.formatarMoeda(alertas.reduce((sum, a) => sum + parseFloat(a.valor_perda || 0), 0))}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        return html;
+    }
+
+    toggleAlertasPerda() {
+        const content = document.getElementById('alertas-content');
+        const btn = document.getElementById('btn-toggle-alertas');
+        
+        if (content.style.display === 'none') {
+            content.style.display = 'block';
+            btn.innerHTML = '➖ Minimizar';
+            btn.className = 'btn btn-sm btn-outline-secondary';
+        } else {
+            content.style.display = 'none';
+            btn.innerHTML = '➕ Expandir';
+            btn.className = 'btn btn-sm btn-outline-primary';
+        }
+    }
     async aplicarFiltroData() {
         const mesAno = document.getElementById('filtro-mes-ano').value;
         const dataInicio = document.getElementById('filtro-data-inicio').value;
         const dataFim = document.getElementById('filtro-data-fim').value;
         
-        let filtros = {};
+        let data_inicio, data_fim;
         
-        // Priorizar filtro por período específico se ambas as datas estiverem preenchidas
+        // Validar e determinar datas
         if (dataInicio && dataFim) {
             if (dataInicio > dataFim) {
                 this.mostrarToast('Data de início deve ser anterior à data fim', 'error');
                 return;
             }
-            filtros = { data_inicio: dataInicio, data_fim: dataFim };
+            data_inicio = dataInicio;
+            data_fim = dataFim;
         } else if (mesAno) {
-            filtros = { mes_ano: mesAno };
+            // Converter mês/ano em data_inicio e data_fim
+            const [year, month] = mesAno.split('-');
+            data_inicio = `${year}-${month}-01`;
+            const ultimoDia = new Date(year, month, 0).getDate();
+            data_fim = `${year}-${month}-${ultimoDia}`;
+        } else {
+            this.mostrarToast('Selecione um período', 'error');
+            return;
         }
         
         // Recarregar dados com filtro
         try {
-            let url = '../../api/historico_perdas.php';
             const params = new URLSearchParams();
+            params.append('data_inicio', data_inicio);
+            params.append('data_fim', data_fim);
             
-            if (filtros.data_inicio && filtros.data_fim) {
-                params.append('data_inicio', filtros.data_inicio);
-                params.append('data_fim', filtros.data_fim);
-            } else if (filtros.mes_ano) {
-                params.append('mes_ano', filtros.mes_ano);
-            }
-            
-            if (params.toString()) {
-                url += '?' + params.toString();
-            }
-            
-            const response = await fetch(url);
+            const response = await fetch('../../api/historico_perdas_corrigido.php?' + params.toString());
             const result = await response.json();
             
             if (result.success) {
@@ -962,14 +1272,14 @@ class Relatorios {
                     container.innerHTML = this.criarTabelaHistoricoPerdas(result.data);
                 }
                 
-                const totalFiltrado = result.data.length;
+                const totalFiltrado = result.data.filter(p => p.quantidade_perdida > 0).length;
                 this.mostrarToast(`Filtro aplicado: ${totalFiltrado} perdas encontradas`, 'success');
             } else {
                 throw new Error(result.message);
             }
         } catch (error) {
             console.error('Erro ao aplicar filtro:', error);
-            this.mostrarToast('Erro ao aplicar filtro', 'error');
+            this.mostrarToast('Erro ao aplicar filtro: ' + error.message, 'error');
         }
     }
 
@@ -978,7 +1288,7 @@ class Relatorios {
         document.getElementById('filtro-data-inicio').value = '';
         document.getElementById('filtro-data-fim').value = '';
         
-        // Recarregar todos os dados
+        // Recarregar com período padrão (mês atual)
         this.abrirHistoricoPerdas();
     }
 
@@ -1020,8 +1330,35 @@ class Relatorios {
         }, 5000);
     }
 }
+
+// =============================================================================
+// FUNÇÕES GLOBAIS PARA INTEGRAÇÃO COM HTML
+// =============================================================================
+
 function aplicarFiltrosAvancados() {
     relatorios.gerarRelatorio();
+}
+
+function marcarPerdaVisualizadaModal(perdaId, event) {
+    event.stopPropagation();
+    relatorios.marcarPerdaVisualizada(perdaId);
+}
+
+function marcarPerdaDinamicaVisualizada(produtoId, produtoNome, quantidade, valor, event) {
+    event.stopPropagation();
+    relatorios.marcarPerdaDinamicaVisualizada(produtoId, produtoNome, quantidade, valor);
+}
+
+function aplicarFiltroData() {
+    relatorios.aplicarFiltroData();
+}
+
+function limparFiltroData() {
+    relatorios.limparFiltroData();
+}
+
+function exportarHistoricoPerdas() {
+    relatorios.exportarHistoricoPerdas();
 }
 
 // Inicializar relatórios
@@ -1324,6 +1661,57 @@ style.textContent = `
 
     .alerta-info {
         flex: 1 !important;
+    }
+
+    /* ESTILOS PARA ALERTAS DE PERDA (SEÇÃO PRINCIPAL) */
+    .alertas-perda-section {
+        background: linear-gradient(135deg, #fff5f5, #fff9f9) !important;
+        border: 2px solid #e74c3c !important;
+        border-radius: 10px !important;
+        padding: 1.5rem !important;
+        margin: 2rem 0 !important;
+        box-shadow: 0 4px 15px rgba(231, 76, 60, 0.15) !important;
+    }
+
+    .alertas-perda-section .alertas-header {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        margin-bottom: 1rem !important;
+        padding-bottom: 1rem !important;
+        border-bottom: 2px solid #e74c3c !important;
+    }
+
+    .alertas-perda-section .alertas-header h4 {
+        margin: 0 !important;
+        color: #c0392b !important;
+        font-weight: bold !important;
+        font-size: 1.2rem !important;
+    }
+
+    .alertas-perda-section .alertas-actions {
+        display: flex !important;
+        gap: 0.5rem !important;
+    }
+
+    .alertas-perda-section .alerta-item {
+        background: white !important;
+        border: 1px solid #e74c3c !important;
+        border-radius: 8px !important;
+        padding: 1rem !important;
+        margin-bottom: 0.75rem !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+    }
+
+    .alertas-perda-section .alerta-item.perda {
+        background: #fff9f9 !important;
+        border-left: 4px solid #e74c3c !important;
+    }
+
+    .alertas-perda-section .badge {
+        margin-left: 0.5rem !important;
     }
 
     @keyframes fadeOut {
